@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: dp-postgres
+    environment:
+      POSTGRES_USER: dpuser
+      POSTGRES_PASSWORD: dppassword
+      POSTGRES_DB: document_processor
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dpuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dp-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: dp-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dp-network
+
+  # API Server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dp-api
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+
+      # Database
+      DATABASE_URL: postgresql://dpuser:dppassword@postgres:5432/document_processor
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      # File Upload
+      MAX_FILE_SIZE: 52428800
+      UPLOAD_DIR: /app/uploads
+      ALLOWED_FILE_TYPES: .pdf,.docx,.xlsx,.doc,.xls
+
+      # Ollama (use host network for local Ollama)
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: llama3.1:8b
+
+      # Default provider
+      DEFAULT_AI_PROVIDER: ollama
+
+      # Session
+      SESSION_EXPIRE_SECONDS: 3600
+      MAX_ACTIVE_SESSIONS: 100
+
+      # Processing
+      MAX_CONCURRENT_PROCESSING: 5
+      CONVERSATION_TTL_SECONDS: 86400
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dp-network
+    restart: unless-stopped
+    command: >
+      sh -c "
+        npx prisma migrate deploy &&
+        npx prisma generate &&
+        node dist/index.js
+      "
+
+  # Ollama (Optional - uncomment if you want Ollama in Docker)
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: dp-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   networks:
+  #     - dp-network
+  #   restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  # ollama_data:
+  #   driver: local
+
+networks:
+  dp-network:
+    driver: bridge

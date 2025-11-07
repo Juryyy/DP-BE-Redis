@@ -1,0 +1,190 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id              String   @id @default(uuid())
+  userId          String?
+  status          SessionStatus @default(ACTIVE)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  expiresAt       DateTime
+  metadata        Json?
+
+  files           File[]
+  prompts         Prompt[]
+  conversations   Conversation[]
+  results         Result[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model File {
+  id              String   @id @default(uuid())
+  sessionId       String
+  session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  originalName    String
+  filename        String
+  mimeType        String
+  size            Int
+  path            String
+
+  // Extracted content
+  extractedText   String?  @db.Text
+  metadata        Json?
+  sections        Json?    // Auto-detected sections
+
+  // Token estimation
+  tokenCount      Int?
+  modelCompatibility Json? // Which models can process this
+
+  uploadedAt      DateTime @default(now())
+  processedAt     DateTime?
+
+  prompts         PromptFile[]
+
+  @@index([sessionId])
+}
+
+model Prompt {
+  id              String   @id @default(uuid())
+  sessionId       String
+  session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  content         String   @db.Text
+  priority        Int      // Lower number = executes first
+  targetType      TargetType
+
+  // Targeting information
+  targetFileId    String?
+  targetLines     Json?    // { start: number, end: number }
+  targetSection   String?
+
+  status          PromptStatus @default(PENDING)
+  executionOrder  Int?
+
+  createdAt       DateTime @default(now())
+  executedAt      DateTime?
+  completedAt     DateTime?
+
+  result          String?  @db.Text
+  error           String?  @db.Text
+
+  files           PromptFile[]
+
+  @@index([sessionId])
+  @@index([priority])
+  @@index([status])
+}
+
+model PromptFile {
+  id              String   @id @default(uuid())
+  promptId        String
+  prompt          Prompt   @relation(fields: [promptId], references: [id], onDelete: Cascade)
+  fileId          String
+  file            File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([promptId, fileId])
+  @@index([promptId])
+  @@index([fileId])
+}
+
+model Conversation {
+  id              String   @id @default(uuid())
+  sessionId       String
+  session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  type            ConversationType
+  role            ConversationRole
+  content         String   @db.Text
+  context         Json?
+
+  parentId        String?
+  parent          Conversation? @relation("ConversationThread", fields: [parentId], references: [id], onDelete: Cascade)
+  children        Conversation[] @relation("ConversationThread")
+
+  createdAt       DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([parentId])
+  @@index([type])
+}
+
+model Result {
+  id              String   @id @default(uuid())
+  sessionId       String
+  session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  version         Int      @default(1)
+  content         String   @db.Text // Markdown format
+  format          String   @default("markdown")
+
+  status          ResultStatus @default(DRAFT)
+
+  // Metadata
+  metadata        Json?
+  aiProvider      String?
+  modelUsed       String?
+  tokensUsed      Int?
+  processingTime  Int?     // milliseconds
+
+  createdAt       DateTime @default(now())
+  confirmedAt     DateTime?
+
+  @@index([sessionId])
+  @@index([version])
+  @@index([status])
+}
+
+enum SessionStatus {
+  ACTIVE
+  PROCESSING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+enum TargetType {
+  FILE_SPECIFIC
+  LINE_SPECIFIC
+  SECTION_SPECIFIC
+  GLOBAL
+}
+
+enum PromptStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum ConversationType {
+  CLARIFICATION
+  MODIFICATION
+  GENERAL
+}
+
+enum ConversationRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum ResultStatus {
+  DRAFT
+  PENDING_CONFIRMATION
+  CONFIRMED
+  MODIFIED
+}
