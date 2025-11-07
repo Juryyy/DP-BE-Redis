@@ -1,0 +1,986 @@
+openapi: 3.0.3
+info:
+  title: Document Processing Wizard API
+  description: |
+    AI-powered document processing with wizard flow.
+
+    ## Features
+    - Multi-format document upload (PDF, DOCX, XLSX)
+    - Priority-based prompt processing
+    - Multiple AI providers (Ollama, OpenAI, Gemini)
+    - Conversation persistence with clarifications
+    - Version control and document modification
+    - Czech language support
+
+    ## Workflow
+    1. **Upload Files** - Upload documents and get session ID
+    2. **Submit Prompts** - Define processing tasks with priorities
+    3. **Monitor Status** - Track processing progress
+    4. **Handle Clarifications** - Answer AI questions if needed
+    5. **Review Result** - Get processed document
+    6. **Confirm/Modify** - Approve or request changes
+
+  version: 1.0.0
+  contact:
+    name: API Support
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development server
+  - url: https://api.example.com/api
+    description: Production server
+
+tags:
+  - name: Wizard Flow
+    description: Main wizard workflow endpoints
+  - name: Status & Info
+    description: Status and information endpoints
+  - name: Health
+    description: Health check endpoints
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check if the API is running
+      operationId: healthCheck
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+                  environment:
+                    type: string
+                    example: development
+
+  /wizard/upload:
+    post:
+      tags:
+        - Wizard Flow
+      summary: Step 1 - Upload Files
+      description: |
+        Upload one or more documents to start a new processing session.
+        Supported formats: PDF, DOCX, XLSX
+      operationId: uploadFiles
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - files
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: One or more files to upload
+                userId:
+                  type: string
+                  description: Optional user identifier
+                metadata:
+                  type: string
+                  description: Optional JSON metadata
+            examples:
+              singleFile:
+                summary: Upload single file
+                value:
+                  files: document.pdf
+              multipleFiles:
+                summary: Upload multiple files
+                value:
+                  files:
+                    - report.pdf
+                    - data.xlsx
+                    - summary.docx
+                  userId: user123
+      responses:
+        '200':
+          description: Files uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /wizard/prompts:
+    post:
+      tags:
+        - Wizard Flow
+      summary: Step 2 - Submit Prompts
+      description: Submit processing prompts with priority and targeting
+      operationId: submitPrompts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitPromptsRequest'
+            examples:
+              multiplePrompts:
+                $ref: '#/components/examples/SubmitPromptsExample'
+      responses:
+        '200':
+          description: Prompts submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitPromptsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /wizard/status/{sessionId}:
+    get:
+      tags:
+        - Status & Info
+      summary: Step 3 - Get Processing Status
+      description: Check the processing status of a session
+      operationId: getStatus
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /wizard/clarifications/{sessionId}:
+    get:
+      tags:
+        - Wizard Flow
+      summary: Step 4 - Get Clarifications
+      description: Get pending clarification questions from AI
+      operationId: getClarifications
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Clarifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClarificationsResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /wizard/clarifications/respond:
+    post:
+      tags:
+        - Wizard Flow
+      summary: Step 4 - Respond to Clarification
+      description: Answer a clarification question from the AI
+      operationId: respondToClarification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClarificationResponseRequest'
+      responses:
+        '200':
+          description: Response submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClarificationResponseResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /wizard/result/{sessionId}:
+    get:
+      tags:
+        - Wizard Flow
+      summary: Step 5 - Get Result
+      description: Retrieve the processed document result
+      operationId: getResult
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: version
+          in: query
+          description: Specific version number to retrieve
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Result retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /wizard/result/confirm:
+    post:
+      tags:
+        - Wizard Flow
+      summary: Step 5 - Confirm Result
+      description: Confirm, modify, or regenerate a result
+      operationId: confirmResult
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmResultRequest'
+      responses:
+        '200':
+          description: Action completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /wizard/result/modify:
+    post:
+      tags:
+        - Wizard Flow
+      summary: Step 6 - Modify Result
+      description: Modify a result with direct edits or new prompts
+      operationId: modifyResult
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModifyResultRequest'
+            examples:
+              directEdit:
+                summary: Direct content modification
+                value:
+                  sessionId: 550e8400-e29b-41d4-a716-446655440000
+                  resultId: result-uuid-1
+                  modifications: "# Updated Document\n\nNew content..."
+              newPrompts:
+                summary: Modification with new prompts
+                value:
+                  sessionId: 550e8400-e29b-41d4-a716-446655440000
+                  resultId: result-uuid-1
+                  modifications:
+                    - content: Add summary section
+                      priority: 1
+                    - content: Include YoY comparison
+                      priority: 2
+      responses:
+        '200':
+          description: Modification completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModifyResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /wizard/conversation/{sessionId}:
+    get:
+      tags:
+        - Status & Info
+      summary: Get Conversation History
+      description: Retrieve the full conversation history for a session
+      operationId: getConversation
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: limit
+          in: query
+          description: Limit number of messages
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Conversation retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /wizard/session/{sessionId}:
+    get:
+      tags:
+        - Status & Info
+      summary: Get Session Details
+      description: Get complete session information including files, prompts, and results
+      operationId: getSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Session retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      description: Session UUID
+      schema:
+        type: string
+        format: uuid
+        example: 550e8400-e29b-41d4-a716-446655440000
+
+  schemas:
+    UploadResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            sessionId:
+              type: string
+              format: uuid
+              example: 550e8400-e29b-41d4-a716-446655440000
+            files:
+              type: array
+              items:
+                $ref: '#/components/schemas/FileMetadata'
+            tokenEstimate:
+              $ref: '#/components/schemas/TokenEstimate'
+            modelCompatibility:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/ModelCompatibility'
+            canProcess:
+              type: boolean
+            expiresAt:
+              type: string
+              format: date-time
+
+    FileMetadata:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        size:
+          type: integer
+        mimeType:
+          type: string
+        tokenCount:
+          type: integer
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentSection'
+        tables:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentTable'
+
+    DocumentSection:
+      type: object
+      properties:
+        title:
+          type: string
+        level:
+          type: integer
+        startLine:
+          type: integer
+        endLine:
+          type: integer
+
+    DocumentTable:
+      type: object
+      properties:
+        startLine:
+          type: integer
+        endLine:
+          type: integer
+        headers:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+
+    TokenEstimate:
+      type: object
+      properties:
+        total:
+          type: integer
+        estimatedCost:
+          type: number
+          format: float
+        recommendations:
+          type: array
+          items:
+            type: string
+
+    ModelCompatibility:
+      type: object
+      properties:
+        compatible:
+          type: boolean
+        maxTokens:
+          type: integer
+        remainingTokens:
+          type: integer
+        percentageUsed:
+          type: number
+          format: float
+
+    SubmitPromptsRequest:
+      type: object
+      required:
+        - sessionId
+        - prompts
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        prompts:
+          type: array
+          items:
+            $ref: '#/components/schemas/PromptInput'
+
+    PromptInput:
+      type: object
+      required:
+        - content
+        - priority
+        - targetType
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        priority:
+          type: integer
+          minimum: 0
+          description: Lower number = executes first
+        targetType:
+          type: string
+          enum:
+            - FILE_SPECIFIC
+            - LINE_SPECIFIC
+            - SECTION_SPECIFIC
+            - GLOBAL
+        targetFileId:
+          type: string
+          format: uuid
+          description: Required for FILE_SPECIFIC and LINE_SPECIFIC
+        targetLines:
+          type: object
+          properties:
+            start:
+              type: integer
+              minimum: 1
+            end:
+              type: integer
+              minimum: 1
+          description: Required for LINE_SPECIFIC
+        targetSection:
+          type: string
+          description: Required for SECTION_SPECIFIC
+
+    SubmitPromptsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            sessionId:
+              type: string
+              format: uuid
+            prompts:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  content:
+                    type: string
+                  priority:
+                    type: integer
+                  targetType:
+                    type: string
+                  executionOrder:
+                    type: integer
+            estimatedTime:
+              type: integer
+              description: Estimated processing time in seconds
+            status:
+              type: string
+              example: queued
+
+    StatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            sessionId:
+              type: string
+              format: uuid
+            status:
+              type: string
+              enum:
+                - ACTIVE
+                - PROCESSING
+                - COMPLETED
+                - FAILED
+                - EXPIRED
+            progress:
+              type: integer
+              minimum: 0
+              maximum: 100
+            prompts:
+              type: object
+              properties:
+                total:
+                  type: integer
+                completed:
+                  type: integer
+                processing:
+                  type: integer
+                pending:
+                  type: integer
+                failed:
+                  type: integer
+            hasClarifications:
+              type: boolean
+            clarificationCount:
+              type: integer
+            hasResult:
+              type: boolean
+            result:
+              type: object
+              nullable: true
+
+    ClarificationsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            sessionId:
+              type: string
+              format: uuid
+            clarifications:
+              type: array
+              items:
+                $ref: '#/components/schemas/Clarification'
+
+    Clarification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        question:
+          type: string
+        context:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    ClarificationResponseRequest:
+      type: object
+      required:
+        - sessionId
+        - clarificationId
+        - response
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        clarificationId:
+          type: string
+          format: uuid
+        response:
+          type: string
+          minLength: 1
+          maxLength: 5000
+
+    ClarificationResponseResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            sessionId:
+              type: string
+              format: uuid
+            clarificationId:
+              type: string
+              format: uuid
+            status:
+              type: string
+              example: answered
+
+    ResultResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            sessionId:
+              type: string
+              format: uuid
+            result:
+              $ref: '#/components/schemas/Result'
+
+    Result:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        content:
+          type: string
+          description: Result in Markdown format
+        format:
+          type: string
+          example: markdown
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PENDING_CONFIRMATION
+            - CONFIRMED
+            - MODIFIED
+        metadata:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    ConfirmResultRequest:
+      type: object
+      required:
+        - sessionId
+        - resultId
+        - action
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        resultId:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum:
+            - CONFIRM
+            - MODIFY
+            - REGENERATE
+
+    ConfirmResultResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            sessionId:
+              type: string
+              format: uuid
+            resultId:
+              type: string
+              format: uuid
+            status:
+              type: string
+            message:
+              type: string
+
+    ModifyResultRequest:
+      type: object
+      required:
+        - sessionId
+        - resultId
+        - modifications
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        resultId:
+          type: string
+          format: uuid
+        modifications:
+          oneOf:
+            - type: string
+              description: Direct content edit
+            - type: array
+              description: New prompts
+              items:
+                type: object
+                required:
+                  - content
+                  - priority
+                properties:
+                  content:
+                    type: string
+                  priority:
+                    type: integer
+
+    ModifyResultResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          oneOf:
+            - type: object
+              properties:
+                sessionId:
+                  type: string
+                  format: uuid
+                result:
+                  $ref: '#/components/schemas/Result'
+                diff:
+                  type: array
+                  items:
+                    type: object
+                previousVersion:
+                  type: integer
+            - type: object
+              properties:
+                sessionId:
+                  type: string
+                  format: uuid
+                status:
+                  type: string
+                message:
+                  type: string
+
+    ConversationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            sessionId:
+              type: string
+              format: uuid
+            messages:
+              type: array
+              items:
+                $ref: '#/components/schemas/ConversationMessage'
+
+    ConversationMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - GENERAL
+            - CLARIFICATION
+            - MODIFICATION
+        role:
+          type: string
+          enum:
+            - USER
+            - ASSISTANT
+            - SYSTEM
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    SessionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            session:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                status:
+                  type: string
+                createdAt:
+                  type: string
+                  format: date-time
+                expiresAt:
+                  type: string
+                  format: date-time
+                files:
+                  type: array
+                  items:
+                    type: object
+                prompts:
+                  type: array
+                  items:
+                    type: object
+                results:
+                  type: array
+                  items:
+                    type: object
+            conversation:
+              type: object
+              properties:
+                totalMessages:
+                  type: integer
+                clarificationCount:
+                  type: integer
+                lastMessageAt:
+                  type: string
+                  format: date-time
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: Validation error
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: Session not found
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: Internal server error
+
+  examples:
+    SubmitPromptsExample:
+      summary: Multiple prompts with different targets
+      value:
+        sessionId: 550e8400-e29b-41d4-a716-446655440000
+        prompts:
+          - content: Extract revenue from Q4 section
+            priority: 1
+            targetType: SECTION_SPECIFIC
+            targetSection: Q4
+          - content: Update lines 45-60
+            priority: 2
+            targetType: LINE_SPECIFIC
+            targetFileId: file-uuid-1
+            targetLines:
+              start: 45
+              end: 60
+          - content: Merge all into 2025 summary
+            priority: 3
+            targetType: GLOBAL
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication (not yet implemented)
+
+# Uncomment when authentication is implemented
+# security:
+#   - ApiKeyAuth: []

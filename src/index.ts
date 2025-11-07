@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import { logger } from './utils/logger';
 import { closeRedisConnections } from './config/redis';
 import { closeDatabaseConnection } from './config/database';
+import { setupSwagger } from './config/swagger';
 import wizardRoutes from './routes/wizard.routes';
 import { SessionService } from './services/session.service';
 
@@ -17,7 +18,7 @@ const app: Application = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(helmet()); // Security headers
+app.use(helmet({ contentSecurityPolicy: false })); // Security headers (CSP disabled for Swagger UI)
 app.use(cors()); // Enable CORS
 app.use(compression()); // Compress responses
 app.use(express.json({ limit: '10mb' })); // Parse JSON bodies
@@ -42,6 +43,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   });
   next();
 });
+
+// Swagger API documentation
+setupSwagger(app);
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -80,6 +84,7 @@ const server = app.listen(PORT, () => {
   logger.info(`🚀 Server running on port ${PORT}`);
   logger.info(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`🤖 Default AI Provider: ${process.env.DEFAULT_AI_PROVIDER || 'ollama'}`);
+  logger.info(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
 });
 
 // Graceful shutdown

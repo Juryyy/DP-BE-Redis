@@ -213,6 +213,44 @@ curl -X POST http://localhost:3000/api/wizard/upload \
 # You should get a sessionId and file metadata
 ```
 
+## API Documentation
+
+### Swagger UI (Interactive)
+
+Open your browser and navigate to:
+
+```
+http://localhost:3000/api-docs
+```
+
+The Swagger UI provides:
+- Complete API reference
+- Interactive testing (try requests directly in browser)
+- Request/response examples
+- Schema definitions
+- Parameter descriptions
+
+### Alternative Formats
+
+- **JSON:** `http://localhost:3000/api-docs.json`
+- **YAML:** `http://localhost:3000/api-docs.yaml`
+
+### Using Swagger
+
+1. Open `http://localhost:3000/api-docs` in your browser
+2. Browse available endpoints organized by tags
+3. Click on any endpoint to expand it
+4. Click "Try it out" to test the endpoint
+5. Fill in parameters and click "Execute"
+6. View the response directly in the UI
+
+**Example: Testing File Upload**
+1. Navigate to POST `/api/wizard/upload`
+2. Click "Try it out"
+3. Click "Choose File" and select a PDF/DOCX/XLSX
+4. Click "Execute"
+5. See the response with sessionId and file metadata
+
 ## Troubleshooting
 
 ### Port already in use

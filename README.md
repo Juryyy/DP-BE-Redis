@@ -26,6 +26,7 @@ A powerful document processing system with AI-powered wizard workflow, supportin
 - 🔍 **Version Control**: Track document modifications with diff comparison
 - ⚡ **Redis Caching**: Fast session and conversation access
 - 🐳 **Docker Ready**: Easy deployment with Docker Compose
+- 📚 **Swagger/OpenAPI**: Interactive API documentation with live testing
 
 ## 🏗️ Architecture
 
@@ -112,6 +113,29 @@ npm run dev
 ```
 
 The server will start on `http://localhost:3000`
+
+## 📚 API Documentation
+
+### Interactive Swagger Documentation
+
+Once the server is running, you can access the interactive API documentation:
+
+**Swagger UI:** `http://localhost:3000/api-docs`
+
+The Swagger documentation provides:
+- 📖 Complete API reference with all endpoints
+- 🧪 Interactive testing - try API calls directly from the browser
+- 📋 Request/response examples for all endpoints
+- 🔍 Schema definitions and validation rules
+- 💡 Usage examples and descriptions
+
+### Additional Documentation Formats
+
+- **JSON Format:** `http://localhost:3000/api-docs.json`
+- **YAML Format:** `http://localhost:3000/api-docs.yaml`
+- **Markdown Guide:** See [API.md](API.md) for detailed examples
+- **Setup Guide:** See [SETUP.md](SETUP.md) for installation instructions
+- **Usage Examples:** See [EXAMPLE.md](EXAMPLE.md) for complete workflow examples
 
 ## 🐳 Docker Setup
 
