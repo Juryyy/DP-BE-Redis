@@ -84,6 +84,11 @@ cd DP-BE-Redis
 npm install
 ```
 
+> **Note:** If you encounter dependency resolution errors, the project includes a `.npmrc` file that handles peer dependency conflicts. If issues persist, you can manually run:
+> ```bash
+> npm install --legacy-peer-deps
+> ```
+
 3. **Set up environment variables**
 ```bash
 cp .env.example .env

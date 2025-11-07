@@ -43,6 +43,12 @@ Install these first:
 npm install
 ```
 
+> **Troubleshooting Installation:**
+> - The project includes a `.npmrc` file with `legacy-peer-deps=true` to handle LangChain dependency conflicts
+> - If npm install fails, ensure you have Node.js 18+ installed
+> - On Windows, you may need to run PowerShell as Administrator
+> - If issues persist, delete `node_modules` and `package-lock.json`, then retry
+
 2. **Set up database**
 ```bash
 # Create PostgreSQL database
