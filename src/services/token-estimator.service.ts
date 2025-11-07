@@ -1,4 +1,4 @@
-import { encoding_for_model, TikTokenEncoding } from 'tiktoken';
+import { encoding_for_model, TiktokenEncoding } from 'tiktoken';
 import { logger } from '../utils/logger';
 
 export interface TokenEstimate {
@@ -18,7 +18,7 @@ export interface ModelCompatibility {
 }
 
 export class TokenEstimatorService {
-  private static encoders: Map<string, TikTokenEncoding> = new Map();
+  private static encoders: Map<string, TiktokenEncoding> = new Map();
 
   // Model token limits
   private static readonly MODEL_LIMITS = {
@@ -87,7 +87,7 @@ export class TokenEstimatorService {
   /**
    * Get or create encoder for model
    */
-  private static getEncoder(model: string): TikTokenEncoding {
+  private static getEncoder(model: string): TiktokenEncoding {
     if (!this.encoders.has(model)) {
       try {
         const encoder = encoding_for_model(model as any);

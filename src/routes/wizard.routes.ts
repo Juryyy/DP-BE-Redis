@@ -319,10 +319,11 @@ router.post('/clarifications/respond', async (req: Request, res: Response) => {
       where: { id: clarificationId },
     });
 
-    if (clarification?.context?.promptId) {
+    const context = clarification?.context as any;
+    if (context?.promptId) {
       // Re-enqueue the prompt with the new context
       const prompt = await prisma.prompt.findUnique({
-        where: { id: clarification.context.promptId },
+        where: { id: context.promptId },
       });
 
       if (prompt) {
