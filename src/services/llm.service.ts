@@ -1,6 +1,6 @@
 import { ChatOpenAI } from '@langchain/openai';
-import { ChatGoogleGenerativeAI } from '@langchain/community/chat_models/googleai';
-import { Ollama } from '@langchain/community/llms/ollama';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { Ollama } from '@langchain/ollama';
 import { BaseLanguageModel } from '@langchain/core/language_models/base';
 import { HumanMessage, SystemMessage, AIMessage, BaseMessage } from '@langchain/core/messages';
 import { StringOutputParser } from '@langchain/core/output_parsers';
@@ -66,7 +66,7 @@ export class LLMService {
 
       case 'gemini':
         return new ChatGoogleGenerativeAI({
-          modelName: model || process.env.GEMINI_MODEL || 'gemini-1.5-pro',
+          model: model || process.env.GEMINI_MODEL || 'gemini-1.5-pro',
           temperature,
           maxOutputTokens: maxTokens,
           apiKey: process.env.GEMINI_API_KEY,
