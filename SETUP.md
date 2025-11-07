@@ -31,7 +31,7 @@ Your API will be available at `http://localhost:3000`
 #### Prerequisites
 
 Install these first:
-- Node.js 18+ ([Download](https://nodejs.org/))
+- Node.js 20+ ([Download](https://nodejs.org/))
 - PostgreSQL 12+ ([Download](https://www.postgresql.org/download/))
 - Redis 6+ ([Download](https://redis.io/download))
 - Ollama (optional, for local AI) ([Download](https://ollama.ai/))
@@ -45,7 +45,7 @@ npm install
 
 > **Troubleshooting Installation:**
 > - The project includes a `.npmrc` file with `legacy-peer-deps=true` to handle LangChain dependency conflicts
-> - If npm install fails, ensure you have Node.js 18+ installed
+> - If npm install fails, ensure you have Node.js 20+ installed
 > - On Windows, you may need to run PowerShell as Administrator
 > - If issues persist, delete `node_modules` and `package-lock.json`, then retry
 

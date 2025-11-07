@@ -66,7 +66,7 @@ A powerful document processing system with AI-powered wizard workflow, supportin
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - PostgreSQL 12+
 - Redis 6+
 - Ollama (optional, for local AI) or API keys for OpenAI/Gemini
@@ -391,7 +391,7 @@ Submit prompts with priority and targeting
 
 ## 🛠️ Tech Stack
 
-- **Runtime**: Node.js 18+, TypeScript
+- **Runtime**: Node.js 20+, TypeScript
 - **Framework**: Express.js
 - **Database**: PostgreSQL with Prisma ORM
 - **Cache**: Redis with ioredis
