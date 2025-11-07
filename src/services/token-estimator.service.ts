@@ -1,41 +1,13 @@
 import { encoding_for_model, Tiktoken } from 'tiktoken';
 import { logger } from '../utils/logger';
+import { TokenEstimate, ModelCompatibility } from '../types';
+import { MODEL_TOKEN_LIMITS, TOKEN_TO_CHAR_RATIO } from '../constants';
 
-export interface TokenEstimate {
-  tokenCount: number;
-  estimatedCost?: number;
-  modelCompatibility: ModelCompatibility;
-  recommendations: string[];
-}
-
-export interface ModelCompatibility {
-  [modelName: string]: {
-    compatible: boolean;
-    maxTokens: number;
-    remainingTokens: number;
-    percentageUsed: number;
-  };
-}
+// Re-export for backward compatibility
+export { TokenEstimate, ModelCompatibility };
 
 export class TokenEstimatorService {
   private static encoders: Map<string, Tiktoken> = new Map();
-
-  // Model token limits
-  private static readonly MODEL_LIMITS = {
-    'gpt-4-turbo-preview': 128000,
-    'gpt-4': 8192,
-    'gpt-3.5-turbo': 16385,
-    'gpt-3.5-turbo-16k': 16385,
-    'gemini-1.5-pro': 1048576, // 1M tokens
-    'gemini-1.0-pro': 32768,
-    'claude-3-opus': 200000,
-    'claude-3-sonnet': 200000,
-    'claude-3-haiku': 200000,
-    'llama3.1:8b': 128000,
-    'llama3.1:70b': 128000,
-    'mistral:7b': 32768,
-    'mixtral:8x7b': 32768,
-  };
 
   /**
    * Estimate tokens for text using tiktoken (GPT tokenizer)
@@ -50,8 +22,8 @@ export class TokenEstimatorService {
         const tokens = encoder.encode(text);
         tokenCount = tokens.length;
       } else {
-        // Fallback: rough estimation (1 token ≈ 4 characters)
-        tokenCount = Math.ceil(text.length / 4);
+        // Fallback: rough estimation based on character count
+        tokenCount = Math.ceil(text.length / TOKEN_TO_CHAR_RATIO);
       }
 
       // Calculate model compatibility
@@ -107,7 +79,7 @@ export class TokenEstimatorService {
   private static calculateModelCompatibility(tokenCount: number): ModelCompatibility {
     const compatibility: ModelCompatibility = {};
 
-    for (const [modelName, maxTokens] of Object.entries(this.MODEL_LIMITS)) {
+    for (const [modelName, maxTokens] of Object.entries(MODEL_TOKEN_LIMITS)) {
       const remainingTokens = maxTokens - tokenCount;
       const percentageUsed = (tokenCount / maxTokens) * 100;
 
@@ -198,7 +170,7 @@ export class TokenEstimatorService {
    * Check if text fits within model limit
    */
   static fitsInModel(tokenCount: number, modelName: string): boolean {
-    const limit = this.MODEL_LIMITS[modelName as keyof typeof this.MODEL_LIMITS];
+    const limit = MODEL_TOKEN_LIMITS[modelName as keyof typeof MODEL_TOKEN_LIMITS];
     if (!limit) return false;
     return tokenCount <= limit * 0.8; // Use 80% to leave room for response
   }
@@ -207,7 +179,7 @@ export class TokenEstimatorService {
    * Get recommended models for token count
    */
   static getRecommendedModels(tokenCount: number): string[] {
-    return Object.entries(this.MODEL_LIMITS)
+    return Object.entries(MODEL_TOKEN_LIMITS)
       .filter(([_, limit]) => tokenCount <= limit * 0.8)
       .map(([name, _]) => name)
       .sort((a, b) => {

@@ -10,29 +10,11 @@ import { BufferMemory } from 'langchain/memory';
 import { ConversationChain } from 'langchain/chains';
 import { logger } from '../utils/logger';
 import axios from 'axios';
+import { AIProvider, LLMConfig, ChatMessage, LLMResponse } from '../types';
+import { DEFAULT_MODEL_CONFIG, DEFAULT_MODELS, DEFAULT_PROVIDER_URLS, UNCERTAINTY_PATTERNS } from '../constants';
 
-export type AIProvider = 'ollama' | 'ollama-remote' | 'openai' | 'gemini';
-
-export interface LLMConfig {
-  provider: AIProvider;
-  model?: string;
-  temperature?: number;
-  maxTokens?: number;
-  topP?: number;
-}
-
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-export interface LLMResponse {
-  content: string;
-  provider: string;
-  model: string;
-  tokensUsed?: number;
-  finishReason?: string;
-}
+// Re-export for backward compatibility
+export { AIProvider, LLMConfig, ChatMessage, LLMResponse };
 
 export class LLMService {
   private config: LLMConfig;
@@ -40,9 +22,7 @@ export class LLMService {
 
   constructor(config: LLMConfig) {
     this.config = {
-      temperature: 0.7,
-      maxTokens: 4096,
-      topP: 1,
+      ...DEFAULT_MODEL_CONFIG,
       ...config,
     };
 
@@ -58,7 +38,7 @@ export class LLMService {
     switch (provider) {
       case 'openai':
         return new ChatOpenAI({
-          modelName: model || process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+          modelName: model || process.env.OPENAI_MODEL || DEFAULT_MODELS.openai,
           temperature: temperature,
           maxTokens: maxTokens,
           openAIApiKey: process.env.OPENAI_API_KEY,
@@ -66,7 +46,7 @@ export class LLMService {
 
       case 'gemini':
         return new ChatGoogleGenerativeAI({
-          model: model || process.env.GEMINI_MODEL || 'gemini-1.5-pro',
+          model: model || process.env.GEMINI_MODEL || DEFAULT_MODELS.gemini,
           temperature: temperature,
           maxOutputTokens: maxTokens,
           apiKey: process.env.GEMINI_API_KEY,
@@ -74,15 +54,15 @@ export class LLMService {
 
       case 'ollama':
         return new Ollama({
-          baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
-          model: model || process.env.OLLAMA_MODEL || 'llama3.1:8b',
+          baseUrl: process.env.OLLAMA_BASE_URL || DEFAULT_PROVIDER_URLS.ollama,
+          model: model || process.env.OLLAMA_MODEL || DEFAULT_MODELS.ollama,
           temperature: temperature,
         }) as any as BaseLanguageModel;
 
       case 'ollama-remote':
         return new Ollama({
           baseUrl: process.env.OLLAMA_REMOTE_URL || process.env.OLLAMA_BASE_URL,
-          model: model || process.env.OLLAMA_MODEL || 'llama3.1:8b',
+          model: model || process.env.OLLAMA_MODEL || DEFAULT_MODELS['ollama-remote'],
           temperature: temperature,
         }) as any as BaseLanguageModel;
 
@@ -253,24 +233,7 @@ export class LLMService {
    * Detect uncertainty in AI response (for clarification step)
    */
   static detectUncertainty(response: string): boolean {
-    const uncertaintyPatterns = [
-      /nejsem si jistý/i,
-      /nevím/i,
-      /možná/i,
-      /pravděpodobně/i,
-      /not sure/i,
-      /unclear/i,
-      /ambiguous/i,
-      /could be/i,
-      /might be/i,
-      /\?{2,}/,  // Multiple question marks
-      /which one/i,
-      /který z/i,
-      /která z/i,
-      /které z/i,
-    ];
-
-    return uncertaintyPatterns.some(pattern => pattern.test(response));
+    return UNCERTAINTY_PATTERNS.some(pattern => pattern.test(response));
   }
 
   /**

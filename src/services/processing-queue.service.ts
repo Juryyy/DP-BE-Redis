@@ -6,22 +6,11 @@ import { LLMService, createLLMService, AIProvider } from './llm.service';
 import { ConversationService } from './conversation.service';
 import { ConversationRole, ConversationType } from '@prisma/client';
 import { SessionService } from './session.service';
+import { ProcessingJob, ProcessingResult } from '../types';
+import { CZECH_SYSTEM_PROMPT } from '../constants';
 
-export interface ProcessingJob {
-  sessionId: string;
-  promptId: string;
-  priority: number;
-  createdAt: Date;
-}
-
-export interface ProcessingResult {
-  success: boolean;
-  result?: string;
-  error?: string;
-  needsClarification?: boolean;
-  clarificationQuestions?: string[];
-  tokensUsed?: number;
-}
+// Re-export for backward compatibility
+export { ProcessingJob, ProcessingResult };
 
 export class ProcessingQueueService {
   private static isProcessing = false;
@@ -202,15 +191,9 @@ export class ProcessingQueueService {
       // Create LLM service
       const llmService = createLLMService();
 
-      // Add system message for Czech language
-      const systemPrompt = `Jsi AI asistent pro zpracování dokumentů. Tvým úkolem je analyzovat a zpracovávat dokumenty v českém jazyce.
-Vždy odpovídej v češtině, pokud není výslovně požadováno jinak.
-Zachovej strukturu dokumentů, zejména tabulky ve formátu Markdown.
-Pokud si nejsi jistý nebo potřebuješ objasnění, jasně to uveď ve své odpovědi.`;
-
-      // Execute prompt
+      // Execute prompt with Czech system prompt
       const startTime = Date.now();
-      const response = await llmService.complete(fullPrompt, systemPrompt);
+      const response = await llmService.complete(fullPrompt, CZECH_SYSTEM_PROMPT);
       const processingTime = Date.now() - startTime;
 
       // Check for uncertainty

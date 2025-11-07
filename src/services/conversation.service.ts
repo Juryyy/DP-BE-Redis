@@ -3,23 +3,10 @@ import { redisClient, REDIS_KEYS } from '../config/redis';
 import prisma from '../config/database';
 import { ConversationType, ConversationRole } from '@prisma/client';
 import { logger } from '../utils/logger';
-import { ChatMessage } from './llm.service';
+import { ChatMessage, ConversationMessage, ConversationThread } from '../types';
 
-export interface ConversationMessage {
-  id: string;
-  sessionId: string;
-  type: ConversationType;
-  role: ConversationRole;
-  content: string;
-  context?: any;
-  parentId?: string;
-  createdAt: Date;
-}
-
-export interface ConversationThread {
-  messages: ConversationMessage[];
-  context: any;
-}
+// Re-export for backward compatibility
+export { ConversationMessage, ConversationThread };
 
 export class ConversationService {
   /**
