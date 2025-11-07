@@ -59,32 +59,32 @@ export class LLMService {
       case 'openai':
         return new ChatOpenAI({
           modelName: model || process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
-          temperature,
-          maxTokens,
+          temperature: temperature,
+          maxTokens: maxTokens,
           openAIApiKey: process.env.OPENAI_API_KEY,
-        });
+        }) as any as BaseLanguageModel;
 
       case 'gemini':
         return new ChatGoogleGenerativeAI({
           model: model || process.env.GEMINI_MODEL || 'gemini-1.5-pro',
-          temperature,
+          temperature: temperature,
           maxOutputTokens: maxTokens,
           apiKey: process.env.GEMINI_API_KEY,
-        });
+        }) as any as BaseLanguageModel;
 
       case 'ollama':
         return new Ollama({
           baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
           model: model || process.env.OLLAMA_MODEL || 'llama3.1:8b',
-          temperature,
-        });
+          temperature: temperature,
+        }) as any as BaseLanguageModel;
 
       case 'ollama-remote':
         return new Ollama({
           baseUrl: process.env.OLLAMA_REMOTE_URL || process.env.OLLAMA_BASE_URL,
           model: model || process.env.OLLAMA_MODEL || 'llama3.1:8b',
-          temperature,
-        });
+          temperature: temperature,
+        }) as any as BaseLanguageModel;
 
       default:
         throw new Error(`Unsupported AI provider: ${provider}`);

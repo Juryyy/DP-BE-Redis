@@ -117,17 +117,30 @@ export class DocumentParserService {
   private static async parseDOCX(filePath: string, filename: string): Promise<ParsedDocument> {
     const buffer = await fs.readFile(filePath);
 
-    // Convert to markdown to preserve structure
-    const result = await mammoth.convertToMarkdown({ buffer });
-    const markdown = result.value;
+    // Convert to HTML first
+    const htmlResult = await mammoth.convertToHtml({ buffer });
+    const html = htmlResult.value;
+
+    // Convert HTML to markdown-like text
+    const markdown = html
+      .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n')
+      .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n')
+      .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n')
+      .replace(/<h4[^>]*>(.*?)<\/h4>/gi, '#### $1\n')
+      .replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
+      .replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
+      .replace(/<[^>]*>/g, '')
+      .replace(/\n{3,}/g, '\n\n');
+
     const lines = markdown.split('\n');
 
     // Parse markdown to detect sections
     const sections = this.detectSectionsFromMarkdown(lines);
 
     // Extract plain text
-    const htmlResult = await mammoth.convertToHtml({ buffer });
-    const plainText = htmlResult.value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const plainText = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
     const metadata: DocumentMetadata = {
       filename,
