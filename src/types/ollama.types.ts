@@ -29,4 +29,5 @@ export interface OllamaModelUpdate {
   priority?: number;
   maxTokens?: number;
   temperature?: number;
+  contextWindow?: number;
 }

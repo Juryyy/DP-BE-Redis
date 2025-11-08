@@ -6,6 +6,7 @@ import { LLMService, createLLMService, AIProvider } from './llm.service';
 import { ConversationService } from './conversation.service';
 import { ConversationRole, ConversationType } from '@prisma/client';
 import { SessionService } from './session.service';
+import { OllamaModelService } from './ollama-model.service';
 import { ProcessingJob, ProcessingResult } from '../types';
 import { CZECH_SYSTEM_PROMPT, MAX_CONCURRENT_PROCESSING } from '../constants';
 
@@ -15,6 +16,37 @@ export { ProcessingJob, ProcessingResult };
 export class ProcessingQueueService {
   private static isProcessing = false;
   private static processingJobs = new Set<string>();
+
+  /**
+   * Estimate number of tokens from character count
+   * Uses conservative 4:1 character-to-token ratio
+   */
+  private static estimateTokens(charCount: number): number {
+    return Math.ceil(charCount / 4);
+  }
+
+  /**
+   * Check if content should be split based on model's context window
+   * Returns true if content exceeds 80% of model's context window (safety margin)
+   */
+  private static async shouldSplitContent(
+    contentSize: number,
+    modelName: string
+  ): Promise<boolean> {
+    const contextWindow = await OllamaModelService.getModelContextWindow(modelName);
+
+    if (!contextWindow) {
+      logger.warn(`No context window found for model ${modelName}, using conservative 100KB threshold`);
+      return contentSize > 100000;
+    }
+
+    const estimatedTokens = this.estimateTokens(contentSize);
+    const safetyThreshold = contextWindow * 0.8; // Use 80% of available context
+
+    logger.info(`Content check: ${estimatedTokens} estimated tokens vs ${safetyThreshold} safe limit (${contextWindow} max) for model ${modelName}`);
+
+    return estimatedTokens > safetyThreshold;
+  }
 
   static async enqueue(sessionId: string, promptId: string, priority: number): Promise<void> {
     try {
@@ -158,13 +190,21 @@ export class ProcessingQueueService {
 
       const previousResults = await this.getPreviousResults(sessionId, prompt.priority);
 
+      // Get LLM service and model name for context window checking
+      const llmService = await createLLMService();
+      const provider = process.env.DEFAULT_AI_PROVIDER || 'ollama';
+      const modelName = provider === 'ollama' || provider === 'ollama-remote'
+        ? await OllamaModelService.getBestAvailableModel() || 'llama3.1:8b'
+        : 'gpt-4'; // Default for non-Ollama providers
+
       // Check if this is a GLOBAL prompt with too much content
       if (prompt.targetType === 'GLOBAL') {
         const totalSize = sessionFiles.reduce((sum, f) => sum + (f.extractedText?.length || 0), 0);
+        const shouldSplit = await this.shouldSplitContent(totalSize, modelName);
 
-        if (totalSize > 100000) {
-          logger.warn(`GLOBAL prompt with ${totalSize} characters (${Math.round(totalSize/1000)}KB). Auto-splitting into file-by-file processing.`);
-          await this.processGlobalPromptSequentially(sessionId, prompt, sessionFiles, previousResults);
+        if (shouldSplit) {
+          logger.warn(`GLOBAL prompt with ${totalSize} characters (${Math.round(totalSize/1000)}KB) exceeds model ${modelName} context window. Auto-splitting into file-by-file processing.`);
+          await this.processGlobalPromptSequentially(sessionId, prompt, sessionFiles, previousResults, modelName);
           return;
         }
       }
@@ -173,13 +213,14 @@ export class ProcessingQueueService {
 
       const conversationHistory = await ConversationService.getConversationHistory(sessionId);
 
-      const llmService = await createLLMService();
-
       logger.info(`Prompt size: ${fullPrompt.length} characters, System prompt size: ${CZECH_SYSTEM_PROMPT.length} characters`);
 
-      // Warn about large prompts
-      if (fullPrompt.length > 100000) {
-        logger.warn(`LARGE PROMPT WARNING: ${fullPrompt.length} characters (${Math.round(fullPrompt.length / 1000)}KB). This may cause timeouts or out-of-memory errors. Consider splitting the document into smaller sections.`);
+      // Check if prompt is too large for model's context window
+      const promptSize = fullPrompt.length + CZECH_SYSTEM_PROMPT.length;
+      const shouldSplitPrompt = await this.shouldSplitContent(promptSize, modelName);
+
+      if (shouldSplitPrompt) {
+        logger.warn(`LARGE PROMPT WARNING: ${promptSize} characters (${Math.round(promptSize / 1000)}KB) exceeds model ${modelName} context window. This may cause timeouts or errors.`);
       }
 
       const startTime = Date.now();
@@ -244,20 +285,50 @@ export class ProcessingQueueService {
   }
 
   /**
+   * Split a large file into chunks based on model's context window
+   * Preserves context by including overlap between chunks
+   */
+  private static splitFileIntoChunks(
+    fileContent: string,
+    maxChunkSize: number,
+    overlapSize: number = 500
+  ): string[] {
+    const chunks: string[] = [];
+    let startIdx = 0;
+
+    while (startIdx < fileContent.length) {
+      const endIdx = Math.min(startIdx + maxChunkSize, fileContent.length);
+      const chunk = fileContent.substring(startIdx, endIdx);
+      chunks.push(chunk);
+
+      // Move to next chunk with overlap
+      startIdx = endIdx - overlapSize;
+
+      // Prevent infinite loop on small overlaps
+      if (startIdx >= endIdx) {
+        break;
+      }
+    }
+
+    return chunks;
+  }
+
+  /**
    * Process GLOBAL prompt by splitting into file-by-file processing
    */
   private static async processGlobalPromptSequentially(
     sessionId: string,
     prompt: any,
     sessionFiles: any[],
-    previousResults: string[]
+    previousResults: string[],
+    modelName: string
   ): Promise<void> {
     const llmService = await createLLMService();
     const fileResults: string[] = [];
     let totalTokens = 0;
     const overallStartTime = Date.now();
 
-    logger.info(`Processing ${sessionFiles.length} files sequentially for GLOBAL prompt`);
+    logger.info(`Processing ${sessionFiles.length} files sequentially for GLOBAL prompt using model ${modelName}`);
 
     for (let i = 0; i < sessionFiles.length; i++) {
       const file = sessionFiles[i];
@@ -269,30 +340,82 @@ export class ProcessingQueueService {
 
       logger.info(`Processing file ${i + 1}/${sessionFiles.length}: ${file.originalName} (${file.extractedText.length} characters)`);
 
-      let filePrompt = '';
+      // Check if individual file is too large and needs chunking
+      const fileSize = file.extractedText.length;
+      const shouldChunkFile = await this.shouldSplitContent(fileSize, modelName);
 
-      // Add previous file results as context
-      if (fileResults.length > 0) {
-        filePrompt += '# Výsledky z předchozích souborů:\n\n';
-        fileResults.forEach((result, idx) => {
-          const prevFile = sessionFiles[idx];
-          filePrompt += `## ${prevFile.originalName}:\n${result}\n\n`;
-        });
-        filePrompt += '---\n\n';
+      if (shouldChunkFile) {
+        logger.warn(`File ${file.originalName} exceeds context window, splitting into chunks`);
+
+        // Calculate max chunk size (characters) based on model's context window
+        const contextWindow = await OllamaModelService.getModelContextWindow(modelName);
+        const maxChunkTokens = contextWindow ? contextWindow * 0.6 : 15000; // Use 60% for content, rest for context
+        const maxChunkChars = Math.floor(maxChunkTokens * 4); // ~4 chars per token
+
+        const chunks = this.splitFileIntoChunks(file.extractedText, maxChunkChars);
+        logger.info(`Split file ${file.originalName} into ${chunks.length} chunks`);
+
+        const chunkResults: string[] = [];
+
+        for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+          let chunkPrompt = '';
+
+          // Add previous chunk results as context
+          if (chunkResults.length > 0) {
+            chunkPrompt += '# Předchozí části dokumentu:\n\n';
+            chunkResults.forEach((result, idx) => {
+              chunkPrompt += `## Část ${idx + 1}:\n${result}\n\n`;
+            });
+            chunkPrompt += '---\n\n';
+          }
+
+          chunkPrompt += `# Obsah souboru: ${file.originalName} (část ${chunkIdx + 1}/${chunks.length})\n\n`;
+          chunkPrompt += chunks[chunkIdx] + '\n\n';
+          chunkPrompt += `# Úkol:\n\n${prompt.content}\n`;
+
+          const startTime = Date.now();
+          const response = await llmService.complete(chunkPrompt, CZECH_SYSTEM_PROMPT);
+          const processingTime = Date.now() - startTime;
+
+          logger.info(`File ${i + 1}/${sessionFiles.length}, chunk ${chunkIdx + 1}/${chunks.length} processed: ${response.content.length} characters, took ${processingTime}ms`);
+
+          chunkResults.push(response.content);
+          totalTokens += response.tokensUsed || 0;
+        }
+
+        // Combine chunk results
+        const combinedChunkResult = chunkResults.map((result, idx) =>
+          `### Část ${idx + 1}\n\n${result}`
+        ).join('\n\n');
+
+        fileResults.push(combinedChunkResult);
+      } else {
+        // File fits in context, process normally
+        let filePrompt = '';
+
+        // Add previous file results as context
+        if (fileResults.length > 0) {
+          filePrompt += '# Výsledky z předchozích souborů:\n\n';
+          fileResults.forEach((result, idx) => {
+            const prevFile = sessionFiles[idx];
+            filePrompt += `## ${prevFile.originalName}:\n${result}\n\n`;
+          });
+          filePrompt += '---\n\n';
+        }
+
+        filePrompt += `# Obsah souboru: ${file.originalName}\n\n`;
+        filePrompt += file.extractedText + '\n\n';
+        filePrompt += `# Úkol:\n\n${prompt.content}\n`;
+
+        const startTime = Date.now();
+        const response = await llmService.complete(filePrompt, CZECH_SYSTEM_PROMPT);
+        const processingTime = Date.now() - startTime;
+
+        logger.info(`File ${i + 1}/${sessionFiles.length} processed: ${response.content.length} characters, took ${processingTime}ms`);
+
+        fileResults.push(response.content);
+        totalTokens += response.tokensUsed || 0;
       }
-
-      filePrompt += `# Obsah souboru: ${file.originalName}\n\n`;
-      filePrompt += file.extractedText + '\n\n';
-      filePrompt += `# Úkol:\n\n${prompt.content}\n`;
-
-      const startTime = Date.now();
-      const response = await llmService.complete(filePrompt, CZECH_SYSTEM_PROMPT);
-      const processingTime = Date.now() - startTime;
-
-      logger.info(`File ${i + 1}/${sessionFiles.length} processed: ${response.content.length} characters, took ${processingTime}ms`);
-
-      fileResults.push(response.content);
-      totalTokens += response.tokensUsed || 0;
     }
 
     // Combine all results

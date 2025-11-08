@@ -28,14 +28,18 @@ export class OllamaModelService {
       const existingModelNames = new Set(existingModels.map(m => m.name));
 
       for (const model of ollamaModels) {
+        const family = model.details?.family || model.details?.families?.[0] || null;
+        const contextWindow = this.estimateContextWindow(model.name, family);
+
         await prisma.ollamaModel.upsert({
           where: { name: model.name },
           update: {
             isAvailable: true,
             size: model.size ? BigInt(model.size) : null,
-            family: model.details?.family || model.details?.families?.[0] || null,
+            family,
             parameterSize: model.details?.parameter_size || null,
             quantization: model.details?.quantization_level || null,
+            contextWindow,
             lastChecked: new Date(),
           },
           create: {
@@ -45,9 +49,10 @@ export class OllamaModelService {
             isEnabled: true,
             priority: this.calculatePriority(model.name),
             size: model.size ? BigInt(model.size) : null,
-            family: model.details?.family || model.details?.families?.[0] || null,
+            family,
             parameterSize: model.details?.parameter_size || null,
             quantization: model.details?.quantization_level || null,
+            contextWindow,
           },
         });
       }
@@ -95,6 +100,25 @@ export class OllamaModelService {
     }
 
     return model?.name || null;
+  }
+
+  /**
+   * Get context window size for a specific model
+   * Returns number of tokens or null if model not found
+   */
+  static async getModelContextWindow(modelName: string): Promise<number | null> {
+    const model = await prisma.ollamaModel.findUnique({
+      where: { name: modelName },
+      select: { contextWindow: true, family: true },
+    });
+
+    if (!model) {
+      // Model not in database, estimate based on name
+      logger.warn(`Model ${modelName} not in database, estimating context window`);
+      return this.estimateContextWindow(modelName, null);
+    }
+
+    return model.contextWindow;
   }
 
   /**
@@ -222,6 +246,68 @@ export class OllamaModelService {
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
+  }
+
+  /**
+   * Estimate context window size based on model name and family
+   * Returns context window in tokens
+   */
+  private static estimateContextWindow(modelName: string, family?: string | null): number {
+    const nameLower = modelName.toLowerCase();
+    const familyLower = family?.toLowerCase() || '';
+
+    // Llama 3.1 and later have 128K context
+    if (nameLower.includes('llama3.1') || nameLower.includes('llama-3.1')) {
+      return 128000;
+    }
+
+    // Llama 3 has 128K context
+    if (nameLower.includes('llama3') || nameLower.includes('llama-3')) {
+      return 128000;
+    }
+
+    // Llama 2 has 4K context
+    if (nameLower.includes('llama2') || nameLower.includes('llama-2') || familyLower === 'llama') {
+      return 4096;
+    }
+
+    // Mistral models typically have 8K context (some newer ones have 32K)
+    if (nameLower.includes('mistral') || familyLower === 'mistral') {
+      // Mistral Large/Medium have larger context
+      if (nameLower.includes('large') || nameLower.includes('medium')) {
+        return 32768;
+      }
+      return 8192;
+    }
+
+    // Qwen 2.5 has 32K context
+    if (nameLower.includes('qwen2.5') || nameLower.includes('qwen-2.5')) {
+      return 32768;
+    }
+
+    // Qwen 2 has 32K context
+    if (nameLower.includes('qwen2') || nameLower.includes('qwen-2')) {
+      return 32768;
+    }
+
+    // Gemma 2 has 8K context
+    if (nameLower.includes('gemma2') || nameLower.includes('gemma-2') || familyLower === 'gemma') {
+      return 8192;
+    }
+
+    // Phi models typically have 4K context
+    if (nameLower.includes('phi') || familyLower === 'phi') {
+      return 4096;
+    }
+
+    // CodeLlama has 16K context
+    if (nameLower.includes('codellama') || nameLower.includes('code-llama')) {
+      return 16384;
+    }
+
+    // Default conservative estimate for unknown models
+    logger.warn(`Unknown model ${modelName}, using conservative 4K context window estimate`);
+    return 4096;
   }
 
   /**

@@ -65,6 +65,7 @@ export class AdminController {
           priority: m.priority,
           maxTokens: m.maxTokens,
           temperature: m.temperature,
+          contextWindow: m.contextWindow,
           usageCount: m.usageCount,
           lastUsed: m.lastUsed,
           lastChecked: m.lastChecked,
@@ -122,7 +123,7 @@ export class AdminController {
    */
   static async updateModel(req: Request, res: Response): Promise<void> {
     const { id } = req.params;
-    const { displayName, isEnabled, priority, maxTokens, temperature } = req.body;
+    const { displayName, isEnabled, priority, maxTokens, temperature, contextWindow } = req.body;
 
     try {
       const model = await OllamaModelService.updateModel(id, {
@@ -131,6 +132,7 @@ export class AdminController {
         priority,
         maxTokens,
         temperature,
+        contextWindow,
       });
 
       res.json({

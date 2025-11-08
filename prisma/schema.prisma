@@ -206,8 +206,9 @@ model OllamaModel {
   priority        Int      @default(100)   // Lower = higher priority
 
   // Usage settings
-  maxTokens       Int?
+  maxTokens       Int?      // Max output tokens
   temperature     Float?
+  contextWindow   Int?      // Max input context in tokens (e.g., 8192, 128000)
 
   // Tracking
   lastChecked     DateTime @default(now())
