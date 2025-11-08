@@ -213,14 +213,32 @@ export class LLMService {
 
       let content: string;
 
+      // Handle array response (LangChain Ollama returns arrays)
       if (Array.isArray(response.content)) {
         content = response.content.join('');
         logger.info(`Converted array response to string: ${content.length} characters`);
-      } else if (typeof response.content === 'string') {
+      }
+      // Handle object with numeric keys (partial/chunked response)
+      else if (response.content && typeof response.content === 'object' && !Array.isArray(response.content)) {
+        const keys = Object.keys(response.content);
+        if (keys.every(k => !isNaN(parseInt(k)))) {
+          const sorted = keys.sort((a, b) => parseInt(a) - parseInt(b));
+          content = sorted.map(k => (response.content as any)[k]).join('');
+          logger.info(`Converted object response to string: ${content.length} characters from ${keys.length} chunks`);
+        } else {
+          content = JSON.stringify(response.content);
+        }
+      }
+      // Handle string response
+      else if (typeof response.content === 'string') {
         content = response.content;
-      } else if (response.content !== null && response.content !== undefined) {
+      }
+      // Handle other types
+      else if (response.content !== null && response.content !== undefined) {
         content = JSON.stringify(response.content);
-      } else {
+      }
+      // Truly empty
+      else {
         logger.error('LLM returned empty response', {
           provider: this.config.provider,
           model: this.config.model,
@@ -268,13 +286,30 @@ export class LLMService {
 
       let content: string;
 
+      // Handle array response (LangChain Ollama returns arrays)
       if (Array.isArray(response.content)) {
         content = response.content.join('');
-      } else if (typeof response.content === 'string') {
+      }
+      // Handle object with numeric keys (partial/chunked response)
+      else if (response.content && typeof response.content === 'object' && !Array.isArray(response.content)) {
+        const keys = Object.keys(response.content);
+        if (keys.every(k => !isNaN(parseInt(k)))) {
+          const sorted = keys.sort((a, b) => parseInt(a) - parseInt(b));
+          content = sorted.map(k => (response.content as any)[k]).join('');
+        } else {
+          content = JSON.stringify(response.content);
+        }
+      }
+      // Handle string response
+      else if (typeof response.content === 'string') {
         content = response.content;
-      } else if (response.content !== null && response.content !== undefined) {
+      }
+      // Handle other types
+      else if (response.content !== null && response.content !== undefined) {
         content = JSON.stringify(response.content);
-      } else {
+      }
+      // Truly empty
+      else {
         logger.error('LLM returned empty response', {
           provider: this.config.provider,
           model: this.config.model,

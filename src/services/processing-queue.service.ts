@@ -166,11 +166,16 @@ export class ProcessingQueueService {
 
       logger.info(`Prompt size: ${fullPrompt.length} characters, System prompt size: ${CZECH_SYSTEM_PROMPT.length} characters`);
 
+      // Warn about large prompts
+      if (fullPrompt.length > 100000) {
+        logger.warn(`LARGE PROMPT WARNING: ${fullPrompt.length} characters (${Math.round(fullPrompt.length / 1000)}KB). This may cause timeouts or out-of-memory errors. Consider splitting the document into smaller sections.`);
+      }
+
       const startTime = Date.now();
       const response = await llmService.complete(fullPrompt, CZECH_SYSTEM_PROMPT);
       const processingTime = Date.now() - startTime;
 
-      logger.info(`LLM response received: ${response.content.length} characters, tokens: ${response.tokensUsed || 'unknown'}`);
+      logger.info(`LLM response received: ${response.content.length} characters, tokens: ${response.tokensUsed || 'unknown'}, took ${processingTime}ms`);
 
       const needsClarification = LLMService.detectUncertainty(response.content);
       const clarificationQuestions = needsClarification
