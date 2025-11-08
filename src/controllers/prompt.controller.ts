@@ -17,14 +17,12 @@ export class PromptController {
   static async submitPrompts(req: Request, res: Response): Promise<void> {
     const { sessionId, prompts } = req.body;
 
-    // Verify session exists
     const session = await SessionService.getSession(sessionId);
     if (!session) {
       res.status(404).json({ error: 'Session not found' });
       return;
     }
 
-    // Create prompts in database
     const createdPrompts = [];
     for (const promptData of prompts) {
       const prompt = await prisma.prompt.create({
@@ -40,7 +38,6 @@ export class PromptController {
         },
       });
 
-      // If file-specific, create relationship
       if (promptData.targetFileId) {
         await prisma.promptFile.create({
           data: {
@@ -53,13 +50,9 @@ export class PromptController {
       createdPrompts.push(prompt);
     }
 
-    // Sort prompts by priority
     const sortedPrompts = createdPrompts.sort((a, b) => a.priority - b.priority);
-
-    // Estimate processing time (rough estimate: 10 seconds per prompt)
     const estimatedTimeSeconds = sortedPrompts.length * 10;
 
-    // Enqueue all prompts
     await ProcessingQueueService.enqueueMultiple(
       sortedPrompts.map(p => ({
         sessionId,

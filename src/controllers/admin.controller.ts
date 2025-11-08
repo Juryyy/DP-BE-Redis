@@ -25,7 +25,10 @@ export class AdminController {
           totalModels: models.length,
           availableModels: models.filter(m => m.isAvailable).length,
           enabledModels: models.filter(m => m.isEnabled && m.isAvailable).length,
-          models,
+          models: models.map(m => ({
+            ...m,
+            size: m.size ? m.size.toString() : null,
+          })),
         },
       });
     } catch (error) {
@@ -87,10 +90,8 @@ export class AdminController {
     }
 
     try {
-      // Start pulling in background
       OllamaModelService.pullModel(modelName)
         .then(async () => {
-          // After pull completes, sync to database
           await OllamaModelService.syncModelsFromOllama();
           logger.info(`Model ${modelName} pulled and synced successfully`);
         })
@@ -135,7 +136,12 @@ export class AdminController {
       res.json({
         success: true,
         message: 'Model updated successfully',
-        data: { model },
+        data: {
+          model: {
+            ...model,
+            size: model.size ? model.size.toString() : null,
+          },
+        },
       });
     } catch (error) {
       logger.error('Error updating model:', error);

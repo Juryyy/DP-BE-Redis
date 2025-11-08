@@ -23,16 +23,13 @@ export class ProcessingController {
       return;
     }
 
-    // Get prompts status
     const prompts = await prisma.prompt.findMany({
       where: { sessionId },
       orderBy: { priority: 'asc' },
     });
 
-    // Get pending clarifications
     const pendingClarifications = await ConversationService.getPendingClarifications(sessionId);
 
-    // Get latest result
     const latestResult = await prisma.result.findFirst({
       where: { sessionId },
       orderBy: { version: 'desc' },

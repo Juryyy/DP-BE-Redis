@@ -16,9 +16,6 @@ export class ProcessingQueueService {
   private static isProcessing = false;
   private static processingJobs = new Set<string>();
 
-  /**
-   * Add a prompt to the processing queue
-   */
   static async enqueue(sessionId: string, promptId: string, priority: number): Promise<void> {
     try {
       const job: ProcessingJob = {
@@ -28,7 +25,7 @@ export class ProcessingQueueService {
         createdAt: new Date(),
       };
 
-      // Add to Redis sorted set (sorted by priority, lower number = higher priority)
+      // Lower number = higher priority (Redis sorted set score)
       await redisClient.zadd(
         REDIS_KEYS.PROCESSING_QUEUE,
         priority,
@@ -45,9 +42,6 @@ export class ProcessingQueueService {
     }
   }
 
-  /**
-   * Enqueue multiple prompts at once
-   */
   static async enqueueMultiple(prompts: Array<{ sessionId: string; promptId: string; priority: number }>): Promise<void> {
     try {
       const pipeline = redisClient.pipeline();
@@ -71,7 +65,6 @@ export class ProcessingQueueService {
 
       logger.info(`Enqueued ${prompts.length} prompts`);
 
-      // Trigger processing
       this.startProcessing();
     } catch (error) {
       logger.error('Error enqueueing multiple jobs:', error);
@@ -79,9 +72,6 @@ export class ProcessingQueueService {
     }
   }
 
-  /**
-   * Start processing the queue
-   */
   static async startProcessing(): Promise<void> {
     if (this.isProcessing) {
       logger.info('Processing already running');
@@ -93,7 +83,7 @@ export class ProcessingQueueService {
 
     try {
       while (true) {
-        // Get the highest priority job (lowest score)
+        // Get job with highest priority (lowest score in Redis sorted set)
         const jobs = await redisClient.zrange(REDIS_KEYS.PROCESSING_QUEUE, 0, 0);
 
         if (jobs.length === 0) {
@@ -103,25 +93,19 @@ export class ProcessingQueueService {
 
         const job: ProcessingJob = JSON.parse(jobs[0]);
 
-        // Check if already processing this job
         if (this.processingJobs.has(job.promptId)) {
           logger.warn(`Job ${job.promptId} is already being processed`);
           continue;
         }
 
-        // Mark as processing
         this.processingJobs.add(job.promptId);
 
-        // Remove from queue
         await redisClient.zrem(REDIS_KEYS.PROCESSING_QUEUE, jobs[0]);
 
-        // Process the job
         await this.processJob(job);
 
-        // Remove from processing set
         this.processingJobs.delete(job.promptId);
 
-        // Check max concurrent processing limit
         const activeCount = await SessionService.getActiveSessionCount();
         const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_PROCESSING || String(MAX_CONCURRENT_PROCESSING));
 
@@ -137,16 +121,12 @@ export class ProcessingQueueService {
     }
   }
 
-  /**
-   * Process a single job
-   */
   private static async processJob(job: ProcessingJob): Promise<void> {
     const { sessionId, promptId } = job;
 
     try {
       logger.info(`Processing prompt ${promptId} for session ${sessionId}`);
 
-      // Update prompt status
       await prisma.prompt.update({
         where: { id: promptId },
         data: {
@@ -155,10 +135,8 @@ export class ProcessingQueueService {
         },
       });
 
-      // Update session status
       await SessionService.updateSessionStatus(sessionId, SessionStatus.PROCESSING);
 
-      // Get prompt details
       const prompt = await prisma.prompt.findUnique({
         where: { id: promptId },
         include: {
@@ -174,35 +152,27 @@ export class ProcessingQueueService {
         throw new Error(`Prompt ${promptId} not found`);
       }
 
-      // Get all files for the session
       const sessionFiles = await prisma.file.findMany({
         where: { sessionId },
       });
 
-      // Build context from previous prompts
       const previousResults = await this.getPreviousResults(sessionId, prompt.priority);
 
-      // Build the full prompt with context
       const fullPrompt = this.buildPromptWithContext(prompt, sessionFiles, previousResults);
 
-      // Get conversation history
       const conversationHistory = await ConversationService.getConversationHistory(sessionId);
 
-      // Create LLM service with auto-detected model
       const llmService = await createLLMService();
 
-      // Execute prompt with Czech system prompt
       const startTime = Date.now();
       const response = await llmService.complete(fullPrompt, CZECH_SYSTEM_PROMPT);
       const processingTime = Date.now() - startTime;
 
-      // Check for uncertainty
       const needsClarification = LLMService.detectUncertainty(response.content);
       const clarificationQuestions = needsClarification
         ? LLMService.extractClarificationQuestions(response.content)
         : [];
 
-      // Save result
       await prisma.prompt.update({
         where: { id: promptId },
         data: {
@@ -212,7 +182,6 @@ export class ProcessingQueueService {
         },
       });
 
-      // Add to conversation
       await ConversationService.addMessage(
         sessionId,
         ConversationRole.ASSISTANT,
@@ -225,7 +194,6 @@ export class ProcessingQueueService {
         }
       );
 
-      // If needs clarification, create clarification messages
       if (needsClarification && clarificationQuestions.length > 0) {
         for (const question of clarificationQuestions) {
           await ConversationService.createClarification(
@@ -242,7 +210,6 @@ export class ProcessingQueueService {
     } catch (error) {
       logger.error(`Error processing prompt ${promptId}:`, error);
 
-      // Update prompt as failed
       await prisma.prompt.update({
         where: { id: promptId },
         data: {
@@ -252,7 +219,6 @@ export class ProcessingQueueService {
         },
       });
 
-      // Update session status
       await SessionService.updateSessionStatus(sessionId, SessionStatus.FAILED);
     }
   }
@@ -281,9 +247,6 @@ export class ProcessingQueueService {
     }
   }
 
-  /**
-   * Build prompt with full context
-   */
   private static buildPromptWithContext(
     prompt: any,
     sessionFiles: any[],
@@ -291,7 +254,6 @@ export class ProcessingQueueService {
   ): string {
     let fullPrompt = '';
 
-    // Add previous results as context
     if (previousResults.length > 0) {
       fullPrompt += '# Kontext z předchozích úkolů:\n\n';
       previousResults.forEach((result, index) => {
@@ -300,7 +262,6 @@ export class ProcessingQueueService {
       fullPrompt += '---\n\n';
     }
 
-    // Add file content based on target type
     if (prompt.targetType === 'FILE_SPECIFIC' && prompt.targetFileId) {
       const targetFile = sessionFiles.find((f) => f.id === prompt.targetFileId);
       if (targetFile && targetFile.extractedText) {
@@ -318,7 +279,6 @@ export class ProcessingQueueService {
         fullPrompt += relevantLines.join('\n') + '\n\n';
       }
     } else if (prompt.targetType === 'SECTION_SPECIFIC' && prompt.targetSection) {
-      // Find section in files
       for (const file of sessionFiles) {
         if (file.sections) {
           const sections = Array.isArray(file.sections) ? file.sections : [];
@@ -334,7 +294,6 @@ export class ProcessingQueueService {
         }
       }
     } else if (prompt.targetType === 'GLOBAL') {
-      // Add all files
       fullPrompt += '# Všechny soubory:\n\n';
       sessionFiles.forEach((file) => {
         if (file.extractedText) {
@@ -344,15 +303,11 @@ export class ProcessingQueueService {
       });
     }
 
-    // Add the actual prompt
     fullPrompt += `# Úkol:\n\n${prompt.content}\n`;
 
     return fullPrompt;
   }
 
-  /**
-   * Get queue status
-   */
   static async getQueueStatus(): Promise<{
     queueSize: number;
     processing: number;

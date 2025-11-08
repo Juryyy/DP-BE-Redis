@@ -31,7 +31,6 @@ export class ResultController {
     }
 
     if (!result) {
-      // Generate result from completed prompts
       const prompts = await prisma.prompt.findMany({
         where: {
           sessionId,
@@ -45,12 +44,10 @@ export class ResultController {
         return;
       }
 
-      // Combine results
       const combinedResult = prompts
         .map(p => `## ${p.content}\n\n${p.result || ''}`)
         .join('\n\n---\n\n');
 
-      // Create initial result
       result = await prisma.result.create({
         data: {
           sessionId,
@@ -64,7 +61,6 @@ export class ResultController {
       });
     }
 
-    // Get all versions for comparison
     const allVersions = await prisma.result.findMany({
       where: { sessionId },
       orderBy: { version: 'asc' },
@@ -103,7 +99,6 @@ export class ResultController {
       },
     });
 
-    // Update session status
     await SessionService.updateSessionStatus(sessionId, SessionStatus.COMPLETED);
 
     res.json({
@@ -140,7 +135,6 @@ export class ResultController {
     const newVersion = currentResult.version + 1;
 
     if (regenerate) {
-      // Regenerate from prompts
       const prompts = await prisma.prompt.findMany({
         where: { sessionId, status: PromptStatus.COMPLETED },
         orderBy: { priority: 'asc' },
@@ -150,11 +144,9 @@ export class ResultController {
         .map(p => `## ${p.content}\n\n${p.result || ''}`)
         .join('\n\n---\n\n');
     } else {
-      // Apply modification prompt
       newContent = `${currentResult.content}\n\n---\n\n### Modifications\n${modificationPrompt}`;
     }
 
-    // Create new version
     const newResult = await prisma.result.create({
       data: {
         sessionId,
@@ -168,7 +160,6 @@ export class ResultController {
       },
     });
 
-    // Calculate diff
     const changes = diff.diffLines(currentResult.content, newContent);
 
     res.json({

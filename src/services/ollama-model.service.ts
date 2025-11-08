@@ -19,17 +19,14 @@ export class OllamaModelService {
     try {
       logger.info(`Syncing models from Ollama at ${url}...`);
 
-      // Get models from Ollama
       const response = await axios.get(`${url}/api/tags`, { timeout: 10000 });
       const ollamaModels: OllamaModelInfo[] = response.data?.models || [];
 
       logger.info(`Found ${ollamaModels.length} models in Ollama`);
 
-      // Get existing models from database
       const existingModels = await prisma.ollamaModel.findMany();
       const existingModelNames = new Set(existingModels.map(m => m.name));
 
-      // Update or create models
       for (const model of ollamaModels) {
         await prisma.ollamaModel.upsert({
           where: { name: model.name },
@@ -55,7 +52,6 @@ export class OllamaModelService {
         });
       }
 
-      // Mark models not in Ollama as unavailable
       const ollamaModelNames = new Set(ollamaModels.map(m => m.name));
       for (const existing of existingModels) {
         if (!ollamaModelNames.has(existing.name)) {
@@ -89,7 +85,6 @@ export class OllamaModelService {
     });
 
     if (model) {
-      // Update usage tracking
       await prisma.ollamaModel.update({
         where: { id: model.id },
         data: {

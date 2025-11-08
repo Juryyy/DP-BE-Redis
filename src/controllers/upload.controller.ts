@@ -19,29 +19,24 @@ export class UploadController {
     const { userId, metadata } = req.body;
     const files = req.files as Express.Multer.File[];
 
-    // Create session
     const session = await SessionService.createSession(
       userId,
       metadata ? JSON.parse(metadata) : undefined
     );
 
-    // Process each file
     const fileMetadata = [];
     const allTexts = [];
 
     for (const file of files) {
       try {
-        // Parse document
         const parsed = await DocumentParserService.parseDocument(
           file.path,
           file.originalname,
           file.mimetype
         );
 
-        // Estimate tokens
         const tokenEstimate = await TokenEstimatorService.estimateTokens(parsed.text);
 
-        // Save file to database
         const savedFile = await prisma.file.create({
           data: {
             sessionId: session.id,
@@ -72,14 +67,11 @@ export class UploadController {
         allTexts.push(parsed.text);
       } catch (error) {
         logger.error(`Error processing file ${file.originalname}:`, error);
-        // Continue with other files
       }
     }
 
-    // Calculate overall token estimate
     const overallEstimate = await TokenEstimatorService.estimateMultipleFiles(allTexts);
 
-    // Determine if can process
     const canProcess = overallEstimate.recommendations.length > 0 &&
       !overallEstimate.recommendations.some(r => r.includes('exceeds'));
 

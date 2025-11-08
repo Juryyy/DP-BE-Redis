@@ -39,17 +39,14 @@ export class ClarificationController {
   static async respondToClarification(req: Request, res: Response): Promise<void> {
     const { sessionId, clarificationId, response } = req.body;
 
-    // Add user response to conversation
     await ConversationService.respondToClarification(sessionId, clarificationId, response);
 
-    // Get the related prompt from clarification context
     const clarification = await prisma.conversation.findUnique({
       where: { id: clarificationId },
     });
 
     const context = clarification?.context as any;
     if (context?.promptId) {
-      // Re-enqueue the prompt with the new context
       const prompt = await prisma.prompt.findUnique({
         where: { id: context.promptId },
       });
