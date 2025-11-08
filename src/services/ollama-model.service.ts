@@ -180,6 +180,51 @@ export class OllamaModelService {
   }
 
   /**
+   * Test if a specific model is working in Ollama
+   */
+  static async testModel(modelName: string, baseUrl?: string): Promise<{
+    success: boolean;
+    response?: string;
+    error?: string;
+  }> {
+    const url = baseUrl || process.env.OLLAMA_BASE_URL || DEFAULT_PROVIDER_URLS.ollama;
+
+    try {
+      logger.info(`Testing model ${modelName} at ${url}...`);
+
+      const response = await axios.post(
+        `${url}/api/generate`,
+        {
+          model: modelName,
+          prompt: 'Řekni "Funguje to!" česky.',
+          stream: false,
+        },
+        { timeout: 30000 }
+      );
+
+      if (response.data && response.data.response) {
+        logger.info(`Model ${modelName} test successful: ${response.data.response}`);
+        return {
+          success: true,
+          response: response.data.response,
+        };
+      }
+
+      logger.error(`Model ${modelName} returned no response`);
+      return {
+        success: false,
+        error: 'No response from model',
+      };
+    } catch (error) {
+      logger.error(`Model ${modelName} test failed:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
    * Generate user-friendly display name
    */
   private static generateDisplayName(modelName: string): string {

@@ -39,6 +39,15 @@ router.get(
 );
 
 /**
+ * Test a model's functionality
+ * POST /api/admin/models/test
+ */
+router.post(
+  '/models/test',
+  asyncHandler(AdminController.testModel)
+);
+
+/**
  * Pull/download a model from Ollama
  * POST /api/admin/models/pull
  */

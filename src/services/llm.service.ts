@@ -202,7 +202,14 @@ export class LLMService {
 
       messages.push(new HumanMessage(prompt));
 
+      logger.info(`Invoking ${this.config.provider} model: ${this.config.model}`);
       const response = await this.model.invoke(messages);
+      logger.info(`Response received from ${this.config.provider}`, {
+        hasContent: !!response.content,
+        contentType: typeof response.content,
+        responseKeys: Object.keys(response),
+        additionalKwargs: response.additional_kwargs,
+      });
 
       let content: string;
       if (typeof response.content === 'string') {
@@ -213,7 +220,8 @@ export class LLMService {
         logger.error('LLM returned empty response', {
           provider: this.config.provider,
           model: this.config.model,
-          responseType: typeof response.content
+          responseType: typeof response.content,
+          fullResponse: JSON.stringify(response),
         });
         content = '';
       }

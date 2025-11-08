@@ -206,4 +206,50 @@ export class AdminController {
       });
     }
   }
+
+  /**
+   * Test a model's functionality
+   * POST /api/admin/models/test
+   */
+  static async testModel(req: Request, res: Response): Promise<void> {
+    const { modelName } = req.body;
+
+    if (!modelName) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'modelName is required',
+      });
+      return;
+    }
+
+    try {
+      const result = await OllamaModelService.testModel(modelName);
+
+      if (result.success) {
+        res.json({
+          success: true,
+          message: `Model ${modelName} is working correctly`,
+          data: {
+            modelName,
+            testResponse: result.response,
+          },
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Model Test Failed',
+          message: result.error || 'Model did not respond',
+          data: {
+            modelName,
+          },
+        });
+      }
+    } catch (error) {
+      logger.error('Error testing model:', error);
+      res.status(500).json({
+        error: 'Failed to test model',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
 }
