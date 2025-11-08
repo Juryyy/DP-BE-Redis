@@ -19,6 +19,7 @@ import {
   PREFERRED_OLLAMA_MODELS,
   OLLAMA_MODEL_CACHE_TTL,
 } from '../constants';
+import { OllamaModelService } from './ollama-model.service';
 
 // Re-export for backward compatibility
 export { AIProvider, LLMConfig, ChatMessage, LLMResponse };
@@ -75,8 +76,31 @@ export class LLMService {
 
   /**
    * Select the best available Ollama model
+   * First tries database, then falls back to API detection
    */
   private static async selectOllamaModel(baseUrl: string, requestedModel?: string): Promise<string> {
+    // Try to get model from database first
+    try {
+      const dbModel = await OllamaModelService.getBestAvailableModel();
+
+      if (dbModel) {
+        logger.info(`Using model from database: ${dbModel}`);
+        return dbModel;
+      }
+
+      logger.info('No models in database, syncing from Ollama...');
+      await OllamaModelService.syncModelsFromOllama(baseUrl);
+
+      const syncedModel = await OllamaModelService.getBestAvailableModel();
+      if (syncedModel) {
+        logger.info(`Using synced model: ${syncedModel}`);
+        return syncedModel;
+      }
+    } catch (error) {
+      logger.warn('Failed to get model from database, falling back to API detection:', error);
+    }
+
+    // Fallback to original API-based detection
     const availableModels = await this.getAvailableOllamaModels(baseUrl);
 
     if (availableModels.length === 0) {

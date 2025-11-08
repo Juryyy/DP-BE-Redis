@@ -9,6 +9,7 @@ import { closeRedisConnections } from './config/redis';
 import { closeDatabaseConnection } from './config/database';
 import { setupSwagger } from './config/swagger';
 import wizardRoutes from './routes/wizard.routes';
+import adminRoutes from './routes/admin.routes';
 import { SessionService } from './services/session.service';
 
 // Load environment variables
@@ -59,6 +60,7 @@ app.get('/health', (req: Request, res: Response) => {
 
 // API routes
 app.use('/api/wizard', wizardRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

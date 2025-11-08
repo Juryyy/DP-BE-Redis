@@ -8,3 +8,4 @@ export * from './processing.controller';
 export * from './clarification.controller';
 export * from './result.controller';
 export * from './session.controller';
+export * from './admin.controller';
