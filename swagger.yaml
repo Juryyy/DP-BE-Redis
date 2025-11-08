@@ -97,9 +97,6 @@ paths:
                 userId:
                   type: string
                   description: Optional user identifier
-                metadata:
-                  type: string
-                  description: Optional JSON metadata
             examples:
               singleFile:
                 summary: Upload single file
