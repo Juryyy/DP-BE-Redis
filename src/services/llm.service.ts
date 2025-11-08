@@ -204,8 +204,26 @@ export class LLMService {
 
       const response = await this.model.invoke(messages);
 
+      let content: string;
+      if (typeof response.content === 'string') {
+        content = response.content;
+      } else if (response.content !== null && response.content !== undefined) {
+        content = JSON.stringify(response.content);
+      } else {
+        logger.error('LLM returned empty response', {
+          provider: this.config.provider,
+          model: this.config.model,
+          responseType: typeof response.content
+        });
+        content = '';
+      }
+
+      if (!content || content.trim().length === 0) {
+        throw new Error('LLM returned empty content. The model may be unavailable or the prompt may be too large.');
+      }
+
       return {
-        content: typeof response.content === 'string' ? response.content : JSON.stringify(response.content),
+        content,
         provider: this.config.provider,
         model: this.config.model || 'default',
         tokensUsed: (response as any).usage?.total_tokens,
@@ -236,8 +254,26 @@ export class LLMService {
 
       const response = await this.model.invoke(langchainMessages);
 
+      let content: string;
+      if (typeof response.content === 'string') {
+        content = response.content;
+      } else if (response.content !== null && response.content !== undefined) {
+        content = JSON.stringify(response.content);
+      } else {
+        logger.error('LLM returned empty response', {
+          provider: this.config.provider,
+          model: this.config.model,
+          responseType: typeof response.content
+        });
+        content = '';
+      }
+
+      if (!content || content.trim().length === 0) {
+        throw new Error('LLM returned empty content. The model may be unavailable or the prompt may be too large.');
+      }
+
       return {
-        content: typeof response.content === 'string' ? response.content : JSON.stringify(response.content),
+        content,
         provider: this.config.provider,
         model: this.config.model || 'default',
         tokensUsed: (response as any).usage?.total_tokens,

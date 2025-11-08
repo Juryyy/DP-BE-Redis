@@ -164,9 +164,13 @@ export class ProcessingQueueService {
 
       const llmService = await createLLMService();
 
+      logger.info(`Prompt size: ${fullPrompt.length} characters, System prompt size: ${CZECH_SYSTEM_PROMPT.length} characters`);
+
       const startTime = Date.now();
       const response = await llmService.complete(fullPrompt, CZECH_SYSTEM_PROMPT);
       const processingTime = Date.now() - startTime;
+
+      logger.info(`LLM response received: ${response.content.length} characters, tokens: ${response.tokensUsed || 'unknown'}`);
 
       const needsClarification = LLMService.detectUncertainty(response.content);
       const clarificationQuestions = needsClarification
