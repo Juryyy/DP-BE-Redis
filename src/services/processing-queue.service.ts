@@ -268,6 +268,9 @@ export class ProcessingQueueService {
       }
 
       logger.info(`Successfully processed prompt ${promptId} in ${processingTime}ms`);
+
+      // Check if all prompts for this session are completed
+      await this.checkAndUpdateSessionStatus(sessionId);
     } catch (error) {
       logger.error(`Error processing prompt ${promptId}:`, error);
 
@@ -281,6 +284,29 @@ export class ProcessingQueueService {
       });
 
       await SessionService.updateSessionStatus(sessionId, SessionStatus.FAILED);
+    }
+  }
+
+  /**
+   * Check if all prompts for a session are completed and update session status accordingly
+   */
+  private static async checkAndUpdateSessionStatus(sessionId: string): Promise<void> {
+    try {
+      const prompts = await prisma.prompt.findMany({
+        where: { sessionId },
+        select: { status: true },
+      });
+
+      const allCompleted = prompts.every(p => p.status === PromptStatus.COMPLETED);
+      const anyFailed = prompts.some(p => p.status === PromptStatus.FAILED);
+
+      if (anyFailed) {
+        await SessionService.updateSessionStatus(sessionId, SessionStatus.FAILED);
+      } else if (allCompleted && prompts.length > 0) {
+        await SessionService.updateSessionStatus(sessionId, SessionStatus.COMPLETED);
+      }
+    } catch (error) {
+      logger.error(`Error checking session status for ${sessionId}:`, error);
     }
   }
 
@@ -449,6 +475,9 @@ export class ProcessingQueueService {
     );
 
     logger.info(`Successfully processed GLOBAL prompt with ${sessionFiles.length} files in ${totalProcessingTime}ms (${Math.round(totalProcessingTime/1000)}s)`);
+
+    // Check if all prompts for this session are completed
+    await this.checkAndUpdateSessionStatus(sessionId);
   }
 
   /**
