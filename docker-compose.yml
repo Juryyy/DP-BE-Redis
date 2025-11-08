@@ -12,7 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dpuser"]
+      test: ["CMD-SHELL", "pg_isready -U dpuser -d document_processor"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -87,7 +87,7 @@ services:
     restart: unless-stopped
     command: >
       sh -c "
-        npx prisma migrate dev &&
+        npx prisma migrate deploy &&
         npx prisma generate &&
         node dist/index.js
       "
