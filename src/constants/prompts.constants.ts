@@ -20,8 +20,10 @@ VÝSTUPNÍ FORMÁTY:
 
 Veškeré poznámky nebo upozornění umísti do HTML komentářů: <!-- poznámka -->
 
-Pokud potřebuješ objasnění, odpoví:
-<!-- OTÁZKA?: "tvoje otázka" -->`;
+Pokud potřebuješ stoprocentní jistotu, že rozumíš požadavku, a nejsi si jistý, odpověz otázkou pro upřesnění.:
+<!-- OTÁZKA?: "tvoje otázka" -->
+
+Ale neznamená to, že máš klást otázky vždy. Pokud jsi si jistý, odpověz přímo podle pravidel.`;
 
 // Uncertainty detection patterns (Czech + English)
 export const UNCERTAINTY_PATTERNS = [
