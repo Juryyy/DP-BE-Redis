@@ -317,7 +317,15 @@ export class ProcessingQueueService {
       if (anyFailed) {
         await SessionService.updateSessionStatus(sessionId, SessionStatus.FAILED);
       } else if (allCompleted && prompts.length > 0) {
-        await SessionService.updateSessionStatus(sessionId, SessionStatus.COMPLETED);
+        // Check if there are pending clarifications before marking as completed
+        const pendingClarifications = await ConversationService.getPendingClarifications(sessionId);
+
+        if (pendingClarifications.length > 0) {
+          logger.info(`Session ${sessionId} has ${pendingClarifications.length} pending clarifications, keeping status as PROCESSING`);
+          // Keep session in PROCESSING state while waiting for user responses
+        } else {
+          await SessionService.updateSessionStatus(sessionId, SessionStatus.COMPLETED);
+        }
       }
     } catch (error) {
       logger.error(`Error checking session status for ${sessionId}:`, error);
