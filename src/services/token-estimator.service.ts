@@ -1,7 +1,17 @@
 import { encoding_for_model, Tiktoken } from 'tiktoken';
 import { logger } from '../utils/logger';
 import { TokenEstimate, ModelCompatibility } from '../types';
-import { MODEL_TOKEN_LIMITS, TOKEN_TO_CHAR_RATIO } from '../constants';
+import {
+  MODEL_TOKEN_LIMITS,
+  TOKEN_TO_CHAR_RATIO,
+  MODEL_PRICING,
+  DEFAULT_MODEL_PRICING,
+  OUTPUT_TOKEN_RATIO,
+  TOKEN_THRESHOLDS,
+  MODEL_RECOMMENDATIONS,
+  TOKEN_MESSAGES,
+  MODEL_SAFETY_BUFFER,
+} from '../constants';
 
 // Re-export for backward compatibility
 export { TokenEstimate, ModelCompatibility };
@@ -109,25 +119,25 @@ export class TokenEstimatorService {
       .map(([name, _]) => name);
 
     if (compatibleModels.length === 0) {
-      recommendations.push('⚠️ Document exceeds most model limits. Consider splitting into smaller chunks.');
+      recommendations.push(TOKEN_MESSAGES.exceedsLimits);
     } else {
-      recommendations.push(`✓ Compatible with ${compatibleModels.length} models`);
+      recommendations.push(TOKEN_MESSAGES.compatible(compatibleModels.length));
     }
 
-    // Suggest best models
-    if (tokenCount < 8000) {
-      recommendations.push('Recommended: GPT-3.5-turbo or Llama 3.1 (cost-effective)');
-    } else if (tokenCount < 30000) {
-      recommendations.push('Recommended: GPT-4-turbo or Gemini 1.0 Pro');
-    } else if (tokenCount < 100000) {
-      recommendations.push('Recommended: Claude 3 or Gemini 1.5 Pro (large context)');
+    // Suggest best models based on token thresholds
+    if (tokenCount < TOKEN_THRESHOLDS.small) {
+      recommendations.push(`Recommended: ${MODEL_RECOMMENDATIONS.small}`);
+    } else if (tokenCount < TOKEN_THRESHOLDS.medium) {
+      recommendations.push(`Recommended: ${MODEL_RECOMMENDATIONS.medium}`);
+    } else if (tokenCount < TOKEN_THRESHOLDS.large) {
+      recommendations.push(`Recommended: ${MODEL_RECOMMENDATIONS.large}`);
     } else {
-      recommendations.push('Recommended: Gemini 1.5 Pro (1M token context)');
+      recommendations.push(`Recommended: ${MODEL_RECOMMENDATIONS.veryLarge}`);
     }
 
     // Warning for very large documents
-    if (tokenCount > 50000) {
-      recommendations.push('⚠️ Large document detected. Processing may take longer and cost more.');
+    if (tokenCount > TOKEN_THRESHOLDS.veryLarge) {
+      recommendations.push(TOKEN_MESSAGES.largeDocument);
     }
 
     return recommendations;
@@ -137,23 +147,11 @@ export class TokenEstimatorService {
    * Estimate processing cost (approximate, in USD)
    */
   private static estimateCost(tokenCount: number, model: string): number {
-    // Approximate pricing per 1M tokens (as of 2024)
-    const pricing: { [key: string]: { input: number; output: number } } = {
-      'gpt-4-turbo-preview': { input: 10, output: 30 },
-      'gpt-4': { input: 30, output: 60 },
-      'gpt-3.5-turbo': { input: 0.5, output: 1.5 },
-      'gemini-1.5-pro': { input: 3.5, output: 10.5 },
-      'gemini-1.0-pro': { input: 0.5, output: 1.5 },
-      'claude-3-opus': { input: 15, output: 75 },
-      'claude-3-sonnet': { input: 3, output: 15 },
-      'claude-3-haiku': { input: 0.25, output: 1.25 },
-    };
+    const modelPricing = MODEL_PRICING[model as keyof typeof MODEL_PRICING] || DEFAULT_MODEL_PRICING;
 
-    const modelPricing = pricing[model] || { input: 1, output: 2 };
-
-    // Estimate: input tokens + estimated output tokens (assume 20% of input)
+    // Estimate: input tokens + estimated output tokens
     const inputCost = (tokenCount / 1000000) * modelPricing.input;
-    const outputCost = (tokenCount * 0.2 / 1000000) * modelPricing.output;
+    const outputCost = (tokenCount * OUTPUT_TOKEN_RATIO / 1000000) * modelPricing.output;
 
     return Math.round((inputCost + outputCost) * 100) / 100; // Round to 2 decimals
   }
@@ -172,7 +170,7 @@ export class TokenEstimatorService {
   static fitsInModel(tokenCount: number, modelName: string): boolean {
     const limit = MODEL_TOKEN_LIMITS[modelName as keyof typeof MODEL_TOKEN_LIMITS];
     if (!limit) return false;
-    return tokenCount <= limit * 0.8; // Use 80% to leave room for response
+    return tokenCount <= limit * MODEL_SAFETY_BUFFER;
   }
 
   /**
@@ -180,7 +178,7 @@ export class TokenEstimatorService {
    */
   static getRecommendedModels(tokenCount: number): string[] {
     return Object.entries(MODEL_TOKEN_LIMITS)
-      .filter(([_, limit]) => tokenCount <= limit * 0.8)
+      .filter(([_, limit]) => tokenCount <= limit * MODEL_SAFETY_BUFFER)
       .map(([name, _]) => name)
       .sort((a, b) => {
         // Sort by cost-effectiveness

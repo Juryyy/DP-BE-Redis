@@ -7,7 +7,7 @@ import { ConversationService } from './conversation.service';
 import { ConversationRole, ConversationType } from '@prisma/client';
 import { SessionService } from './session.service';
 import { ProcessingJob, ProcessingResult } from '../types';
-import { CZECH_SYSTEM_PROMPT } from '../constants';
+import { CZECH_SYSTEM_PROMPT, MAX_CONCURRENT_PROCESSING } from '../constants';
 
 // Re-export for backward compatibility
 export { ProcessingJob, ProcessingResult };
@@ -123,10 +123,10 @@ export class ProcessingQueueService {
 
         // Check max concurrent processing limit
         const activeCount = await SessionService.getActiveSessionCount();
-        const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_PROCESSING || '5');
+        const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_PROCESSING || String(MAX_CONCURRENT_PROCESSING));
 
         if (activeCount >= maxConcurrent) {
-          logger.warn('Max concurrent processing limit reached, pausing');
+          logger.warn(`Max concurrent processing limit (${maxConcurrent}) reached, pausing`);
           break;
         }
       }

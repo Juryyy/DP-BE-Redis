@@ -41,3 +41,47 @@ export const DEFAULT_PROVIDER_URLS = {
 
 // Token estimation fallback ratio (1 token ≈ 4 characters)
 export const TOKEN_TO_CHAR_RATIO = 4;
+
+// Model pricing per 1M tokens (in USD, as of 2024)
+export const MODEL_PRICING = {
+  'gpt-4-turbo-preview': { input: 10, output: 30 },
+  'gpt-4': { input: 30, output: 60 },
+  'gpt-3.5-turbo': { input: 0.5, output: 1.5 },
+  'gemini-1.5-pro': { input: 3.5, output: 10.5 },
+  'gemini-1.0-pro': { input: 0.5, output: 1.5 },
+  'claude-3-opus': { input: 15, output: 75 },
+  'claude-3-sonnet': { input: 3, output: 15 },
+  'claude-3-haiku': { input: 0.25, output: 1.25 },
+} as const;
+
+// Default pricing for unknown models
+export const DEFAULT_MODEL_PRICING = { input: 1, output: 2 } as const;
+
+// Output token estimation ratio (assume output is 20% of input)
+export const OUTPUT_TOKEN_RATIO = 0.2;
+
+// Model usage thresholds for recommendations (in tokens)
+export const TOKEN_THRESHOLDS = {
+  small: 8000,      // Use cost-effective models
+  medium: 30000,    // Use mid-tier models
+  large: 100000,    // Use large context models
+  veryLarge: 50000, // Trigger warning
+} as const;
+
+// Model recommendations by token range
+export const MODEL_RECOMMENDATIONS = {
+  small: 'GPT-3.5-turbo or Llama 3.1 (cost-effective)',
+  medium: 'GPT-4-turbo or Gemini 1.0 Pro',
+  large: 'Claude 3 or Gemini 1.5 Pro (large context)',
+  veryLarge: 'Gemini 1.5 Pro (1M token context)',
+} as const;
+
+// Warning and recommendation messages
+export const TOKEN_MESSAGES = {
+  exceedsLimits: '⚠️ Document exceeds most model limits. Consider splitting into smaller chunks.',
+  compatible: (count: number) => `✓ Compatible with ${count} models`,
+  largeDocument: '⚠️ Large document detected. Processing may take longer and cost more.',
+} as const;
+
+// Model safety buffer (use 80% of limit to leave room for response)
+export const MODEL_SAFETY_BUFFER = 0.8;

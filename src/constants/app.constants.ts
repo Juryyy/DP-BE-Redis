@@ -29,3 +29,7 @@ export const SUPPORTED_MIME_TYPES = {
 } as const;
 
 export const SUPPORTED_FILE_EXTENSIONS = ['.pdf', '.docx', '.xlsx', '.doc', '.xls'] as const;
+
+// Processing queue configuration
+export const MAX_CONCURRENT_PROCESSING = 5; // Maximum number of concurrent processing jobs
+export const QUEUE_POLL_INTERVAL_MS = 1000; // How often to check queue (1 second)
