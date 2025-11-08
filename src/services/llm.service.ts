@@ -481,12 +481,38 @@ export class LLMService {
    * Extract clarification questions from AI response
    */
   static extractClarificationQuestions(response: string): string[] {
-    const lines = response.split('\n');
     const questions: string[] = [];
 
+    // Pattern 1: Extract questions from HTML comments with OTÁZKA/QUESTION markers
+    const htmlCommentPattern = /<!--\s*(?:OTÁZKA|QUESTION)\?:\s*["""]?([^"""]+?)["""]?\s*-->/gi;
+    let match;
+    while ((match = htmlCommentPattern.exec(response)) !== null) {
+      const question = match[1].trim();
+      if (question.length > 5) {
+        questions.push(question);
+      }
+    }
+
+    // Pattern 2: Extract questions from lines with OTÁZKA/QUESTION markers
+    const markerPattern = /(?:OTÁZKA|QUESTION)\?:\s*["""]?([^"""]+?)["""]?$/gmi;
+    while ((match = markerPattern.exec(response)) !== null) {
+      const question = match[1].trim();
+      if (question.length > 5 && !questions.includes(question)) {
+        questions.push(question);
+      }
+    }
+
+    // Pattern 3: Extract plain questions (existing logic)
+    const lines = response.split('\n');
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed.endsWith('?') && trimmed.length > 10) {
+      // Skip lines that are part of code blocks or already matched patterns
+      if (trimmed.endsWith('?') &&
+          trimmed.length > 10 &&
+          !trimmed.includes('<!--') &&
+          !trimmed.includes('OTÁZKA') &&
+          !trimmed.includes('QUESTION') &&
+          !questions.includes(trimmed)) {
         questions.push(trimmed);
       }
     }

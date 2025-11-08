@@ -39,6 +39,10 @@ export const UNCERTAINTY_PATTERNS = [
   /který z/i,
   /která z/i,
   /které z/i,
+  /OTÁZKA\?:/i, // Czech question marker
+  /QUESTION\?:/i, // English question marker
+  /<!--.*OTÁZKA.*-->/i, // Question in HTML comment
+  /<!--.*QUESTION.*-->/i, // Question in HTML comment
 ] as const;
 
 // Default language settings
