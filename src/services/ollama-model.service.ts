@@ -7,19 +7,7 @@ import axios from 'axios';
 import prisma from '../config/database';
 import { logger } from '../utils/logger';
 import { DEFAULT_PROVIDER_URLS } from '../constants';
-
-export interface OllamaModelInfo {
-  name: string;
-  size?: number;
-  digest?: string;
-  details?: {
-    format?: string;
-    family?: string;
-    families?: string[];
-    parameter_size?: string;
-    quantization_level?: string;
-  };
-}
+import { OllamaModelInfo, OllamaModelUpdate } from '../types';
 
 export class OllamaModelService {
   /**
@@ -180,13 +168,7 @@ export class OllamaModelService {
   /**
    * Update model configuration
    */
-  static async updateModel(id: string, updates: {
-    displayName?: string;
-    isEnabled?: boolean;
-    priority?: number;
-    maxTokens?: number;
-    temperature?: number;
-  }) {
+  static async updateModel(id: string, updates: OllamaModelUpdate) {
     return prisma.ollamaModel.update({
       where: { id },
       data: updates,

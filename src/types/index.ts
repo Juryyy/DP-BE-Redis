@@ -19,3 +19,6 @@ export * from './processing.types';
 
 // Token types
 export * from './token.types';
+
+// Ollama types
+export * from './ollama.types';
