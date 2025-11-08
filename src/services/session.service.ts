@@ -3,15 +3,10 @@ import { redisClient, REDIS_KEYS } from '../config/redis';
 import prisma from '../config/database';
 import { logger } from '../utils/logger';
 import { SessionStatus } from '@prisma/client';
+import { SessionData } from '../types';
 
-export interface SessionData {
-  id: string;
-  userId?: string;
-  status: SessionStatus;
-  createdAt: Date;
-  expiresAt: Date;
-  metadata?: any;
-}
+// Re-export for backward compatibility
+export { SessionData };
 
 export class SessionService {
   /**

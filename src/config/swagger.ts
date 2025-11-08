@@ -1,7 +1,7 @@
 import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
 import path from 'path';
-import { Express } from 'express';
+import { Application } from 'express';
 
 // Load the swagger.yaml file
 const swaggerDocument = YAML.load(path.join(__dirname, '../../swagger.yaml'));
@@ -28,7 +28,7 @@ const swaggerOptions: swaggerUi.SwaggerUiOptions = {
 /**
  * Setup Swagger documentation
  */
-export function setupSwagger(app: Express): void {
+export function setupSwagger(app: Application): void {
   // Serve Swagger UI at /api-docs
   app.use('/api-docs', swaggerUi.serve);
   app.get('/api-docs', swaggerUi.setup(swaggerDocument, swaggerOptions));

@@ -5,44 +5,10 @@ import * as fs from 'fs/promises';
 import { logger } from '../utils/logger';
 import MarkdownIt from 'markdown-it';
 import { markdownTable } from 'markdown-table';
+import { ParsedDocument, DocumentMetadata, DocumentSection, DocumentTable } from '../types';
+import { DEFAULT_LANGUAGE } from '../constants';
 
 const md = new MarkdownIt();
-
-export interface ParsedDocument {
-  text: string;
-  metadata: DocumentMetadata;
-  sections: DocumentSection[];
-  tables: DocumentTable[];
-  structure: any;
-}
-
-export interface DocumentMetadata {
-  filename: string;
-  mimeType: string;
-  pageCount?: number;
-  wordCount: number;
-  characterCount: number;
-  language?: string;
-  author?: string;
-  createdDate?: Date;
-  modifiedDate?: Date;
-}
-
-export interface DocumentSection {
-  title: string;
-  level: number;
-  startLine: number;
-  endLine: number;
-  content: string;
-}
-
-export interface DocumentTable {
-  startLine: number;
-  endLine: number;
-  headers: string[];
-  rows: string[][];
-  markdown: string;
-}
 
 export class DocumentParserService {
   /**
@@ -93,7 +59,7 @@ export class DocumentParserService {
       pageCount: pdfData.numpages,
       wordCount: text.split(/\s+/).length,
       characterCount: text.length,
-      language: 'cs', // Default to Czech
+      language: DEFAULT_LANGUAGE, // Default to Czech
       author: pdfData.info?.Author,
       createdDate: pdfData.info?.CreationDate ? new Date(pdfData.info.CreationDate) : undefined,
       modifiedDate: pdfData.info?.ModDate ? new Date(pdfData.info.ModDate) : undefined,
@@ -117,24 +83,37 @@ export class DocumentParserService {
   private static async parseDOCX(filePath: string, filename: string): Promise<ParsedDocument> {
     const buffer = await fs.readFile(filePath);
 
-    // Convert to markdown to preserve structure
-    const result = await mammoth.convertToMarkdown({ buffer });
-    const markdown = result.value;
+    // Convert to HTML first
+    const htmlResult = await mammoth.convertToHtml({ buffer });
+    const html = htmlResult.value;
+
+    // Convert HTML to markdown-like text
+    const markdown = html
+      .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n')
+      .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n')
+      .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n')
+      .replace(/<h4[^>]*>(.*?)<\/h4>/gi, '#### $1\n')
+      .replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
+      .replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
+      .replace(/<[^>]*>/g, '')
+      .replace(/\n{3,}/g, '\n\n');
+
     const lines = markdown.split('\n');
 
     // Parse markdown to detect sections
     const sections = this.detectSectionsFromMarkdown(lines);
 
     // Extract plain text
-    const htmlResult = await mammoth.convertToHtml({ buffer });
-    const plainText = htmlResult.value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const plainText = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
     const metadata: DocumentMetadata = {
       filename,
       mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       wordCount: plainText.split(/\s+/).length,
       characterCount: plainText.length,
-      language: 'cs',
+      language: DEFAULT_LANGUAGE,
     };
 
     // Detect tables
@@ -212,7 +191,7 @@ export class DocumentParserService {
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       wordCount: fullText.split(/\s+/).length,
       characterCount: fullText.length,
-      language: 'cs',
+      language: DEFAULT_LANGUAGE,
     };
 
     return {

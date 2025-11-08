@@ -188,3 +188,36 @@ enum ResultStatus {
   CONFIRMED
   MODIFIED
 }
+
+model OllamaModel {
+  id              String   @id @default(uuid())
+  name            String   @unique // e.g., "llama3.1:8b"
+  displayName     String?  // Friendly name
+
+  // Model metadata
+  size            BigInt?  // Model size in bytes
+  family          String?  // e.g., "llama", "mistral"
+  parameterSize   String?  // e.g., "8B", "70B"
+  quantization    String?  // e.g., "Q4_0", "Q8_0"
+
+  // Configuration
+  isAvailable     Boolean  @default(false) // Is model installed in Ollama?
+  isEnabled       Boolean  @default(true)  // Should we use this model?
+  priority        Int      @default(100)   // Lower = higher priority
+
+  // Usage settings
+  maxTokens       Int?      // Max output tokens
+  temperature     Float?
+  contextWindow   Int?      // Max input context in tokens (e.g., 8192, 128000)
+
+  // Tracking
+  lastChecked     DateTime @default(now())
+  lastUsed        DateTime?
+  usageCount      Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([isAvailable, isEnabled, priority])
+  @@index([name])
+}

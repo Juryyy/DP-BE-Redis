@@ -3,23 +3,10 @@ import { redisClient, REDIS_KEYS } from '../config/redis';
 import prisma from '../config/database';
 import { ConversationType, ConversationRole } from '@prisma/client';
 import { logger } from '../utils/logger';
-import { ChatMessage } from './llm.service';
+import { ChatMessage, ConversationMessage, ConversationThread } from '../types';
 
-export interface ConversationMessage {
-  id: string;
-  sessionId: string;
-  type: ConversationType;
-  role: ConversationRole;
-  content: string;
-  context?: any;
-  parentId?: string;
-  createdAt: Date;
-}
-
-export interface ConversationThread {
-  messages: ConversationMessage[];
-  context: any;
-}
+// Re-export for backward compatibility
+export { ConversationMessage, ConversationThread };
 
 export class ConversationService {
   /**
@@ -36,7 +23,6 @@ export class ConversationService {
     const messageId = uuidv4();
     const now = new Date();
 
-    // Save to database
     const message = await prisma.conversation.create({
       data: {
         id: messageId,
@@ -54,7 +40,6 @@ export class ConversationService {
     const conversationKey = REDIS_KEYS.SESSION_CONVERSATIONS(sessionId);
     await redisClient.rpush(conversationKey, JSON.stringify(message));
 
-    // Set expiration on Redis key
     const ttl = parseInt(process.env.CONVERSATION_TTL_SECONDS || '86400');
     await redisClient.expire(conversationKey, ttl);
 
@@ -63,9 +48,6 @@ export class ConversationService {
     return message;
   }
 
-  /**
-   * Get conversation history for a session
-   */
   static async getConversationHistory(
     sessionId: string,
     limit?: number
@@ -80,14 +62,12 @@ export class ConversationService {
         return limit ? messages.slice(-limit) : messages;
       }
 
-      // Fallback to database
       const messages = await prisma.conversation.findMany({
         where: { sessionId },
         orderBy: { createdAt: 'asc' },
         take: limit,
       });
 
-      // Refresh Redis cache
       if (messages.length > 0) {
         const pipeline = redisClient.pipeline();
         messages.forEach((msg) => {
@@ -109,7 +89,6 @@ export class ConversationService {
    */
   static async getConversationThread(messageId: string): Promise<ConversationThread> {
     try {
-      // Get the message and its children
       const message = await prisma.conversation.findUnique({
         where: { id: messageId },
         include: {
@@ -123,7 +102,6 @@ export class ConversationService {
         throw new Error(`Message ${messageId} not found`);
       }
 
-      // Get parent messages if any
       const parents: any[] = [];
       let currentParentId = message.parentId;
 
@@ -162,9 +140,6 @@ export class ConversationService {
     }));
   }
 
-  /**
-   * Create a clarification conversation
-   */
   static async createClarification(
     sessionId: string,
     aiQuestion: string,
@@ -179,9 +154,6 @@ export class ConversationService {
     );
   }
 
-  /**
-   * Respond to a clarification
-   */
   static async respondToClarification(
     sessionId: string,
     clarificationId: string,
@@ -202,7 +174,6 @@ export class ConversationService {
    */
   static async getPendingClarifications(sessionId: string): Promise<ConversationMessage[]> {
     try {
-      // Get all clarification messages
       const clarifications = await prisma.conversation.findMany({
         where: {
           sessionId,
@@ -215,7 +186,6 @@ export class ConversationService {
         orderBy: { createdAt: 'desc' },
       });
 
-      // Filter out those that have been answered
       return clarifications.filter((c) => c.children.length === 0);
     } catch (error) {
       logger.error('Error getting pending clarifications:', error);
@@ -223,12 +193,8 @@ export class ConversationService {
     }
   }
 
-  /**
-   * Mark clarifications as resolved
-   */
   static async markClarificationsResolved(sessionId: string, messageIds: string[]): Promise<void> {
     try {
-      // Add a system message to mark resolution
       for (const messageId of messageIds) {
         await this.addMessage(
           sessionId,
@@ -252,15 +218,12 @@ export class ConversationService {
    */
   static async persistAndClearRedis(sessionId: string): Promise<void> {
     try {
-      // Get messages from Redis
       const conversationKey = REDIS_KEYS.SESSION_CONVERSATIONS(sessionId);
       const redisMessages = await redisClient.lrange(conversationKey, 0, -1);
 
-      // Ensure all messages are in database
       for (const msgStr of redisMessages) {
         const msg = JSON.parse(msgStr);
 
-        // Check if already exists
         const exists = await prisma.conversation.findUnique({
           where: { id: msg.id },
         });
@@ -272,7 +235,6 @@ export class ConversationService {
         }
       }
 
-      // Clear from Redis
       await redisClient.del(conversationKey);
 
       logger.info(`Persisted and cleared Redis conversation for session ${sessionId}`);
@@ -282,9 +244,6 @@ export class ConversationService {
     }
   }
 
-  /**
-   * Get conversation summary (for display purposes)
-   */
   static async getConversationSummary(sessionId: string): Promise<{
     totalMessages: number;
     clarificationCount: number;

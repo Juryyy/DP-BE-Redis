@@ -37,6 +37,8 @@ tags:
     description: Main wizard workflow endpoints
   - name: Status & Info
     description: Status and information endpoints
+  - name: Admin
+    description: Administrative operations (model management, configuration)
   - name: Health
     description: Health check endpoints
 
@@ -367,6 +369,267 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /admin/models/sync:
+    post:
+      tags:
+        - Admin
+      summary: Sync Models from Ollama
+      description: Query Ollama instance and sync available models to database
+      operationId: syncModels
+      responses:
+        '200':
+          description: Models synced successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Models synced successfully
+                  data:
+                    type: object
+                    properties:
+                      totalModels:
+                        type: integer
+                        example: 3
+                      availableModels:
+                        type: integer
+                        example: 3
+                      enabledModels:
+                        type: integer
+                        example: 3
+                      models:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OllamaModel'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /admin/models:
+    get:
+      tags:
+        - Admin
+      summary: List All Models
+      description: Get all Ollama models from database
+      operationId: listModels
+      parameters:
+        - name: includeUnavailable
+          in: query
+          description: Include models not currently available in Ollama
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Models retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      models:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OllamaModel'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /admin/models/recommended:
+    get:
+      tags:
+        - Admin
+      summary: Get Recommended Model
+      description: Get the best available model based on priority and availability
+      operationId: getRecommendedModel
+      responses:
+        '200':
+          description: Recommended model retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      modelName:
+                        type: string
+                        example: llama3.1:8b
+                      message:
+                        type: string
+                        example: This model will be used for processing
+        '404':
+          description: No available models
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: No Available Models
+                  message:
+                    type: string
+                    example: No enabled models found. Please sync or enable models.
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /admin/models/pull:
+    post:
+      tags:
+        - Admin
+      summary: Pull Model from Ollama
+      description: Download a new model from Ollama registry (runs in background)
+      operationId: pullModel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - modelName
+              properties:
+                modelName:
+                  type: string
+                  example: llama3:8b
+                  description: Name of the model to pull
+      responses:
+        '200':
+          description: Model pull initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Started pulling model llama3:8b
+                  data:
+                    type: object
+                    properties:
+                      modelName:
+                        type: string
+                        example: llama3:8b
+                      status:
+                        type: string
+                        example: pulling
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /admin/models/{id}:
+    patch:
+      tags:
+        - Admin
+      summary: Update Model Configuration
+      description: Update model settings (priority, enabled status, etc.)
+      operationId: updateModel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Model UUID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                  example: Llama 3.1 (8B)
+                isEnabled:
+                  type: boolean
+                  example: true
+                priority:
+                  type: integer
+                  example: 10
+                  description: Lower number = higher priority
+                maxTokens:
+                  type: integer
+                  example: 4096
+                temperature:
+                  type: number
+                  format: float
+                  example: 0.7
+      responses:
+        '200':
+          description: Model updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Model updated successfully
+                  data:
+                    type: object
+                    properties:
+                      model:
+                        $ref: '#/components/schemas/OllamaModel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags:
+        - Admin
+      summary: Delete Model from Database
+      description: Remove model from database (does not delete from Ollama)
+      operationId: deleteModel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Model UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Model deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Model removed from database
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   parameters:
     SessionId:
@@ -487,6 +750,83 @@ components:
         percentageUsed:
           type: number
           format: float
+
+    OllamaModel:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the model
+          example: 550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          description: Ollama model name (e.g., llama3.1:8b)
+          example: llama3.1:8b
+        displayName:
+          type: string
+          description: User-friendly display name
+          example: Llama 3.1 (8B)
+        size:
+          type: string
+          description: Model size in bytes (as string due to BigInt)
+          example: "4700000000"
+        family:
+          type: string
+          description: Model family (e.g., llama, mistral)
+          example: llama
+        parameterSize:
+          type: string
+          description: Parameter size (e.g., 7B, 8B, 70B)
+          example: 8B
+        quantization:
+          type: string
+          description: Quantization level (e.g., Q4_0, Q5_1)
+          example: Q4_0
+        isAvailable:
+          type: boolean
+          description: Whether model is currently available in Ollama
+          example: true
+        isEnabled:
+          type: boolean
+          description: Whether model is enabled for use
+          example: true
+        priority:
+          type: integer
+          description: Model priority (lower = higher priority)
+          example: 10
+        maxTokens:
+          type: integer
+          description: Maximum context tokens
+          example: 4096
+          nullable: true
+        temperature:
+          type: number
+          format: float
+          description: Default temperature setting
+          example: 0.7
+          nullable: true
+        usageCount:
+          type: integer
+          description: Number of times model has been used
+          example: 42
+        lastUsed:
+          type: string
+          format: date-time
+          description: Timestamp of last usage
+          nullable: true
+        lastChecked:
+          type: string
+          format: date-time
+          description: Timestamp of last availability check
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when model was added to database
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of last update
 
     SubmitPromptsRequest:
       type: object

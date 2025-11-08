@@ -1,7 +1,10 @@
 # Multi-stage build for optimized production image
 
 # Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
+
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl openssl-dev
 
 WORKDIR /app
 
@@ -23,7 +26,10 @@ RUN npx prisma generate
 RUN npm run build
 
 # Stage 2: Production
-FROM node:20-alpine
+FROM node:22-alpine
+
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl openssl-dev
 
 WORKDIR /app
 
@@ -36,6 +42,13 @@ RUN npm install --omit=dev && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/prisma ./prisma
+
+# Copy Swagger documentation
+COPY swagger.yaml ./
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
 # Create necessary directories
 RUN mkdir -p uploads logs
@@ -51,4 +64,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Start application
-CMD ["node", "dist/index.js"]
+CMD ["./docker-entrypoint.sh"]

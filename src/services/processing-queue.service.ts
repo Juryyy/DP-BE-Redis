@@ -6,30 +6,48 @@ import { LLMService, createLLMService, AIProvider } from './llm.service';
 import { ConversationService } from './conversation.service';
 import { ConversationRole, ConversationType } from '@prisma/client';
 import { SessionService } from './session.service';
+import { OllamaModelService } from './ollama-model.service';
+import { ProcessingJob, ProcessingResult } from '../types';
+import { CZECH_SYSTEM_PROMPT, MAX_CONCURRENT_PROCESSING } from '../constants';
 
-export interface ProcessingJob {
-  sessionId: string;
-  promptId: string;
-  priority: number;
-  createdAt: Date;
-}
-
-export interface ProcessingResult {
-  success: boolean;
-  result?: string;
-  error?: string;
-  needsClarification?: boolean;
-  clarificationQuestions?: string[];
-  tokensUsed?: number;
-}
+// Re-export for backward compatibility
+export { ProcessingJob, ProcessingResult };
 
 export class ProcessingQueueService {
   private static isProcessing = false;
   private static processingJobs = new Set<string>();
 
   /**
-   * Add a prompt to the processing queue
+   * Estimate number of tokens from character count
+   * Uses conservative 4:1 character-to-token ratio
    */
+  private static estimateTokens(charCount: number): number {
+    return Math.ceil(charCount / 4);
+  }
+
+  /**
+   * Check if content should be split based on model's context window
+   * Returns true if content exceeds 80% of model's context window (safety margin)
+   */
+  private static async shouldSplitContent(
+    contentSize: number,
+    modelName: string
+  ): Promise<boolean> {
+    const contextWindow = await OllamaModelService.getModelContextWindow(modelName);
+
+    if (!contextWindow) {
+      logger.warn(`No context window found for model ${modelName}, using conservative 100KB threshold`);
+      return contentSize > 100000;
+    }
+
+    const estimatedTokens = this.estimateTokens(contentSize);
+    const safetyThreshold = contextWindow * 0.8; // Use 80% of available context
+
+    logger.info(`Content check: ${estimatedTokens} estimated tokens vs ${safetyThreshold} safe limit (${contextWindow} max) for model ${modelName}`);
+
+    return estimatedTokens > safetyThreshold;
+  }
+
   static async enqueue(sessionId: string, promptId: string, priority: number): Promise<void> {
     try {
       const job: ProcessingJob = {
@@ -39,7 +57,7 @@ export class ProcessingQueueService {
         createdAt: new Date(),
       };
 
-      // Add to Redis sorted set (sorted by priority, lower number = higher priority)
+      // Lower number = higher priority (Redis sorted set score)
       await redisClient.zadd(
         REDIS_KEYS.PROCESSING_QUEUE,
         priority,
@@ -56,9 +74,6 @@ export class ProcessingQueueService {
     }
   }
 
-  /**
-   * Enqueue multiple prompts at once
-   */
   static async enqueueMultiple(prompts: Array<{ sessionId: string; promptId: string; priority: number }>): Promise<void> {
     try {
       const pipeline = redisClient.pipeline();
@@ -82,7 +97,6 @@ export class ProcessingQueueService {
 
       logger.info(`Enqueued ${prompts.length} prompts`);
 
-      // Trigger processing
       this.startProcessing();
     } catch (error) {
       logger.error('Error enqueueing multiple jobs:', error);
@@ -90,9 +104,6 @@ export class ProcessingQueueService {
     }
   }
 
-  /**
-   * Start processing the queue
-   */
   static async startProcessing(): Promise<void> {
     if (this.isProcessing) {
       logger.info('Processing already running');
@@ -104,7 +115,7 @@ export class ProcessingQueueService {
 
     try {
       while (true) {
-        // Get the highest priority job (lowest score)
+        // Get job with highest priority (lowest score in Redis sorted set)
         const jobs = await redisClient.zrange(REDIS_KEYS.PROCESSING_QUEUE, 0, 0);
 
         if (jobs.length === 0) {
@@ -114,30 +125,24 @@ export class ProcessingQueueService {
 
         const job: ProcessingJob = JSON.parse(jobs[0]);
 
-        // Check if already processing this job
         if (this.processingJobs.has(job.promptId)) {
           logger.warn(`Job ${job.promptId} is already being processed`);
           continue;
         }
 
-        // Mark as processing
         this.processingJobs.add(job.promptId);
 
-        // Remove from queue
         await redisClient.zrem(REDIS_KEYS.PROCESSING_QUEUE, jobs[0]);
 
-        // Process the job
         await this.processJob(job);
 
-        // Remove from processing set
         this.processingJobs.delete(job.promptId);
 
-        // Check max concurrent processing limit
         const activeCount = await SessionService.getActiveSessionCount();
-        const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_PROCESSING || '5');
+        const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_PROCESSING || String(MAX_CONCURRENT_PROCESSING));
 
         if (activeCount >= maxConcurrent) {
-          logger.warn('Max concurrent processing limit reached, pausing');
+          logger.warn(`Max concurrent processing limit (${maxConcurrent}) reached, pausing`);
           break;
         }
       }
@@ -148,16 +153,12 @@ export class ProcessingQueueService {
     }
   }
 
-  /**
-   * Process a single job
-   */
   private static async processJob(job: ProcessingJob): Promise<void> {
     const { sessionId, promptId } = job;
 
     try {
       logger.info(`Processing prompt ${promptId} for session ${sessionId}`);
 
-      // Update prompt status
       await prisma.prompt.update({
         where: { id: promptId },
         data: {
@@ -166,10 +167,8 @@ export class ProcessingQueueService {
         },
       });
 
-      // Update session status
       await SessionService.updateSessionStatus(sessionId, SessionStatus.PROCESSING);
 
-      // Get prompt details
       const prompt = await prisma.prompt.findUnique({
         where: { id: promptId },
         include: {
@@ -185,41 +184,56 @@ export class ProcessingQueueService {
         throw new Error(`Prompt ${promptId} not found`);
       }
 
-      // Get all files for the session
       const sessionFiles = await prisma.file.findMany({
         where: { sessionId },
       });
 
-      // Build context from previous prompts
       const previousResults = await this.getPreviousResults(sessionId, prompt.priority);
 
-      // Build the full prompt with context
+      // Get LLM service and model name for context window checking
+      const llmService = await createLLMService();
+      const provider = process.env.DEFAULT_AI_PROVIDER || 'ollama';
+      const modelName = provider === 'ollama' || provider === 'ollama-remote'
+        ? await OllamaModelService.getBestAvailableModel() || 'llama3.1:8b'
+        : 'gpt-4'; // Default for non-Ollama providers
+
+      // Check if this is a GLOBAL prompt with too much content
+      if (prompt.targetType === 'GLOBAL') {
+        const totalSize = sessionFiles.reduce((sum, f) => sum + (f.extractedText?.length || 0), 0);
+        const shouldSplit = await this.shouldSplitContent(totalSize, modelName);
+
+        if (shouldSplit) {
+          logger.warn(`GLOBAL prompt with ${totalSize} characters (${Math.round(totalSize/1000)}KB) exceeds model ${modelName} context window. Auto-splitting into file-by-file processing.`);
+          await this.processGlobalPromptSequentially(sessionId, prompt, sessionFiles, previousResults, modelName);
+          return;
+        }
+      }
+
       const fullPrompt = this.buildPromptWithContext(prompt, sessionFiles, previousResults);
 
-      // Get conversation history
       const conversationHistory = await ConversationService.getConversationHistory(sessionId);
 
-      // Create LLM service
-      const llmService = createLLMService();
+      logger.info(`Prompt size: ${fullPrompt.length} characters, System prompt size: ${CZECH_SYSTEM_PROMPT.length} characters`);
 
-      // Add system message for Czech language
-      const systemPrompt = `Jsi AI asistent pro zpracování dokumentů. Tvým úkolem je analyzovat a zpracovávat dokumenty v českém jazyce.
-Vždy odpovídej v češtině, pokud není výslovně požadováno jinak.
-Zachovej strukturu dokumentů, zejména tabulky ve formátu Markdown.
-Pokud si nejsi jistý nebo potřebuješ objasnění, jasně to uveď ve své odpovědi.`;
+      // Check if prompt is too large for model's context window
+      const promptSize = fullPrompt.length + CZECH_SYSTEM_PROMPT.length;
+      const shouldSplitPrompt = await this.shouldSplitContent(promptSize, modelName);
 
-      // Execute prompt
+      if (shouldSplitPrompt) {
+        logger.warn(`LARGE PROMPT WARNING: ${promptSize} characters (${Math.round(promptSize / 1000)}KB) exceeds model ${modelName} context window. This may cause timeouts or errors.`);
+      }
+
       const startTime = Date.now();
-      const response = await llmService.complete(fullPrompt, systemPrompt);
+      const response = await llmService.complete(fullPrompt, CZECH_SYSTEM_PROMPT);
       const processingTime = Date.now() - startTime;
 
-      // Check for uncertainty
+      logger.info(`LLM response received: ${response.content.length} characters, tokens: ${response.tokensUsed || 'unknown'}, took ${processingTime}ms`);
+
       const needsClarification = LLMService.detectUncertainty(response.content);
       const clarificationQuestions = needsClarification
         ? LLMService.extractClarificationQuestions(response.content)
         : [];
 
-      // Save result
       await prisma.prompt.update({
         where: { id: promptId },
         data: {
@@ -229,7 +243,6 @@ Pokud si nejsi jistý nebo potřebuješ objasnění, jasně to uveď ve své odp
         },
       });
 
-      // Add to conversation
       await ConversationService.addMessage(
         sessionId,
         ConversationRole.ASSISTANT,
@@ -242,7 +255,6 @@ Pokud si nejsi jistý nebo potřebuješ objasnění, jasně to uveď ve své odp
         }
       );
 
-      // If needs clarification, create clarification messages
       if (needsClarification && clarificationQuestions.length > 0) {
         for (const question of clarificationQuestions) {
           await ConversationService.createClarification(
@@ -259,7 +271,6 @@ Pokud si nejsi jistý nebo potřebuješ objasnění, jasně to uveď ve své odp
     } catch (error) {
       logger.error(`Error processing prompt ${promptId}:`, error);
 
-      // Update prompt as failed
       await prisma.prompt.update({
         where: { id: promptId },
         data: {
@@ -269,9 +280,175 @@ Pokud si nejsi jistý nebo potřebuješ objasnění, jasně to uveď ve své odp
         },
       });
 
-      // Update session status
       await SessionService.updateSessionStatus(sessionId, SessionStatus.FAILED);
     }
+  }
+
+  /**
+   * Split a large file into chunks based on model's context window
+   * Preserves context by including overlap between chunks
+   */
+  private static splitFileIntoChunks(
+    fileContent: string,
+    maxChunkSize: number,
+    overlapSize: number = 500
+  ): string[] {
+    const chunks: string[] = [];
+    let startIdx = 0;
+
+    while (startIdx < fileContent.length) {
+      const endIdx = Math.min(startIdx + maxChunkSize, fileContent.length);
+      const chunk = fileContent.substring(startIdx, endIdx);
+      chunks.push(chunk);
+
+      // Move to next chunk with overlap
+      startIdx = endIdx - overlapSize;
+
+      // Prevent infinite loop on small overlaps
+      if (startIdx >= endIdx) {
+        break;
+      }
+    }
+
+    return chunks;
+  }
+
+  /**
+   * Process GLOBAL prompt by splitting into file-by-file processing
+   */
+  private static async processGlobalPromptSequentially(
+    sessionId: string,
+    prompt: any,
+    sessionFiles: any[],
+    previousResults: string[],
+    modelName: string
+  ): Promise<void> {
+    const llmService = await createLLMService();
+    const fileResults: string[] = [];
+    let totalTokens = 0;
+    const overallStartTime = Date.now();
+
+    logger.info(`Processing ${sessionFiles.length} files sequentially for GLOBAL prompt using model ${modelName}`);
+
+    for (let i = 0; i < sessionFiles.length; i++) {
+      const file = sessionFiles[i];
+
+      if (!file.extractedText) {
+        logger.warn(`Skipping file ${file.originalName} - no extracted text`);
+        continue;
+      }
+
+      logger.info(`Processing file ${i + 1}/${sessionFiles.length}: ${file.originalName} (${file.extractedText.length} characters)`);
+
+      // Check if individual file is too large and needs chunking
+      const fileSize = file.extractedText.length;
+      const shouldChunkFile = await this.shouldSplitContent(fileSize, modelName);
+
+      if (shouldChunkFile) {
+        logger.warn(`File ${file.originalName} exceeds context window, splitting into chunks`);
+
+        // Calculate max chunk size (characters) based on model's context window
+        const contextWindow = await OllamaModelService.getModelContextWindow(modelName);
+        const maxChunkTokens = contextWindow ? contextWindow * 0.6 : 15000; // Use 60% for content, rest for context
+        const maxChunkChars = Math.floor(maxChunkTokens * 4); // ~4 chars per token
+
+        const chunks = this.splitFileIntoChunks(file.extractedText, maxChunkChars);
+        logger.info(`Split file ${file.originalName} into ${chunks.length} chunks`);
+
+        const chunkResults: string[] = [];
+
+        for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+          let chunkPrompt = '';
+
+          // Add previous chunk results as context
+          if (chunkResults.length > 0) {
+            chunkPrompt += '# Předchozí části dokumentu:\n\n';
+            chunkResults.forEach((result, idx) => {
+              chunkPrompt += `## Část ${idx + 1}:\n${result}\n\n`;
+            });
+            chunkPrompt += '---\n\n';
+          }
+
+          chunkPrompt += `# Obsah souboru: ${file.originalName} (část ${chunkIdx + 1}/${chunks.length})\n\n`;
+          chunkPrompt += chunks[chunkIdx] + '\n\n';
+          chunkPrompt += `# Úkol:\n\n${prompt.content}\n`;
+
+          const startTime = Date.now();
+          const response = await llmService.complete(chunkPrompt, CZECH_SYSTEM_PROMPT);
+          const processingTime = Date.now() - startTime;
+
+          logger.info(`File ${i + 1}/${sessionFiles.length}, chunk ${chunkIdx + 1}/${chunks.length} processed: ${response.content.length} characters, took ${processingTime}ms`);
+
+          chunkResults.push(response.content);
+          totalTokens += response.tokensUsed || 0;
+        }
+
+        // Combine chunk results
+        const combinedChunkResult = chunkResults.map((result, idx) =>
+          `### Část ${idx + 1}\n\n${result}`
+        ).join('\n\n');
+
+        fileResults.push(combinedChunkResult);
+      } else {
+        // File fits in context, process normally
+        let filePrompt = '';
+
+        // Add previous file results as context
+        if (fileResults.length > 0) {
+          filePrompt += '# Výsledky z předchozích souborů:\n\n';
+          fileResults.forEach((result, idx) => {
+            const prevFile = sessionFiles[idx];
+            filePrompt += `## ${prevFile.originalName}:\n${result}\n\n`;
+          });
+          filePrompt += '---\n\n';
+        }
+
+        filePrompt += `# Obsah souboru: ${file.originalName}\n\n`;
+        filePrompt += file.extractedText + '\n\n';
+        filePrompt += `# Úkol:\n\n${prompt.content}\n`;
+
+        const startTime = Date.now();
+        const response = await llmService.complete(filePrompt, CZECH_SYSTEM_PROMPT);
+        const processingTime = Date.now() - startTime;
+
+        logger.info(`File ${i + 1}/${sessionFiles.length} processed: ${response.content.length} characters, took ${processingTime}ms`);
+
+        fileResults.push(response.content);
+        totalTokens += response.tokensUsed || 0;
+      }
+    }
+
+    // Combine all results
+    const combinedResult = fileResults.map((result, idx) => {
+      const file = sessionFiles[idx];
+      return `## ${file.originalName}\n\n${result}`;
+    }).join('\n\n---\n\n');
+
+    const totalProcessingTime = Date.now() - overallStartTime;
+
+    await prisma.prompt.update({
+      where: { id: prompt.id },
+      data: {
+        status: PromptStatus.COMPLETED,
+        completedAt: new Date(),
+        result: combinedResult,
+      },
+    });
+
+    await ConversationService.addMessage(
+      sessionId,
+      ConversationRole.ASSISTANT,
+      combinedResult,
+      ConversationType.GENERAL,
+      {
+        promptId: prompt.id,
+        tokensUsed: totalTokens,
+        processingTime: totalProcessingTime,
+        fileCount: sessionFiles.length,
+      }
+    );
+
+    logger.info(`Successfully processed GLOBAL prompt with ${sessionFiles.length} files in ${totalProcessingTime}ms (${Math.round(totalProcessingTime/1000)}s)`);
   }
 
   /**
@@ -298,9 +475,6 @@ Pokud si nejsi jistý nebo potřebuješ objasnění, jasně to uveď ve své odp
     }
   }
 
-  /**
-   * Build prompt with full context
-   */
   private static buildPromptWithContext(
     prompt: any,
     sessionFiles: any[],
@@ -308,7 +482,6 @@ Pokud si nejsi jistý nebo potřebuješ objasnění, jasně to uveď ve své odp
   ): string {
     let fullPrompt = '';
 
-    // Add previous results as context
     if (previousResults.length > 0) {
       fullPrompt += '# Kontext z předchozích úkolů:\n\n';
       previousResults.forEach((result, index) => {
@@ -317,7 +490,6 @@ Pokud si nejsi jistý nebo potřebuješ objasnění, jasně to uveď ve své odp
       fullPrompt += '---\n\n';
     }
 
-    // Add file content based on target type
     if (prompt.targetType === 'FILE_SPECIFIC' && prompt.targetFileId) {
       const targetFile = sessionFiles.find((f) => f.id === prompt.targetFileId);
       if (targetFile && targetFile.extractedText) {
@@ -335,7 +507,6 @@ Pokud si nejsi jistý nebo potřebuješ objasnění, jasně to uveď ve své odp
         fullPrompt += relevantLines.join('\n') + '\n\n';
       }
     } else if (prompt.targetType === 'SECTION_SPECIFIC' && prompt.targetSection) {
-      // Find section in files
       for (const file of sessionFiles) {
         if (file.sections) {
           const sections = Array.isArray(file.sections) ? file.sections : [];
@@ -351,7 +522,6 @@ Pokud si nejsi jistý nebo potřebuješ objasnění, jasně to uveď ve své odp
         }
       }
     } else if (prompt.targetType === 'GLOBAL') {
-      // Add all files
       fullPrompt += '# Všechny soubory:\n\n';
       sessionFiles.forEach((file) => {
         if (file.extractedText) {
@@ -361,15 +531,11 @@ Pokud si nejsi jistý nebo potřebuješ objasnění, jasně to uveď ve své odp
       });
     }
 
-    // Add the actual prompt
     fullPrompt += `# Úkol:\n\n${prompt.content}\n`;
 
     return fullPrompt;
   }
 
-  /**
-   * Get queue status
-   */
   static async getQueueStatus(): Promise<{
     queueSize: number;
     processing: number;
