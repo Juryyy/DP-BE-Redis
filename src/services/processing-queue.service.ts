@@ -188,8 +188,8 @@ export class ProcessingQueueService {
       // Get conversation history
       const conversationHistory = await ConversationService.getConversationHistory(sessionId);
 
-      // Create LLM service
-      const llmService = createLLMService();
+      // Create LLM service with auto-detected model
+      const llmService = await createLLMService();
 
       // Execute prompt with Czech system prompt
       const startTime = Date.now();

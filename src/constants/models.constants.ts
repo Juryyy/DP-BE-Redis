@@ -85,3 +85,23 @@ export const TOKEN_MESSAGES = {
 
 // Model safety buffer (use 80% of limit to leave room for response)
 export const MODEL_SAFETY_BUFFER = 0.8;
+
+// Preferred Ollama models in order of preference
+// When auto-detecting, the first available model from this list will be used
+export const PREFERRED_OLLAMA_MODELS = [
+  'llama3.1:8b',
+  'llama3.1:70b',
+  'llama3:8b',
+  'llama3:70b',
+  'llama2:7b',
+  'llama2:13b',
+  'mistral:7b',
+  'mixtral:8x7b',
+  'qwen2.5:7b',
+  'qwen2.5:14b',
+  'gemma2:9b',
+  'phi3:medium',
+] as const;
+
+// Cache settings for Ollama model detection
+export const OLLAMA_MODEL_CACHE_TTL = 300000; // 5 minutes

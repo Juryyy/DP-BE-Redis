@@ -11,7 +11,14 @@ import { ConversationChain } from 'langchain/chains';
 import { logger } from '../utils/logger';
 import axios from 'axios';
 import { AIProvider, LLMConfig, ChatMessage, LLMResponse } from '../types';
-import { DEFAULT_MODEL_CONFIG, DEFAULT_MODELS, DEFAULT_PROVIDER_URLS, UNCERTAINTY_PATTERNS } from '../constants';
+import {
+  DEFAULT_MODEL_CONFIG,
+  DEFAULT_MODELS,
+  DEFAULT_PROVIDER_URLS,
+  UNCERTAINTY_PATTERNS,
+  PREFERRED_OLLAMA_MODELS,
+  OLLAMA_MODEL_CACHE_TTL,
+} from '../constants';
 
 // Re-export for backward compatibility
 export { AIProvider, LLMConfig, ChatMessage, LLMResponse };
@@ -20,6 +27,9 @@ export class LLMService {
   private config: LLMConfig;
   private model: BaseLanguageModel;
 
+  // Cache for available Ollama models
+  private static ollamaModelsCache: { models: string[]; timestamp: number } | null = null;
+
   constructor(config: LLMConfig) {
     this.config = {
       ...DEFAULT_MODEL_CONFIG,
@@ -27,6 +37,71 @@ export class LLMService {
     };
 
     this.model = this.initializeModel();
+  }
+
+  /**
+   * Query Ollama for available models
+   */
+  private static async getAvailableOllamaModels(baseUrl: string): Promise<string[]> {
+    try {
+      // Check cache first
+      if (this.ollamaModelsCache && Date.now() - this.ollamaModelsCache.timestamp < OLLAMA_MODEL_CACHE_TTL) {
+        logger.info('Using cached Ollama models');
+        return this.ollamaModelsCache.models;
+      }
+
+      logger.info(`Querying Ollama at ${baseUrl} for available models...`);
+      const response = await axios.get(`${baseUrl}/api/tags`, { timeout: 5000 });
+
+      if (response.data && response.data.models) {
+        const models = response.data.models.map((m: any) => m.name);
+
+        // Update cache
+        this.ollamaModelsCache = {
+          models,
+          timestamp: Date.now(),
+        };
+
+        logger.info(`Found ${models.length} Ollama models:`, models.join(', '));
+        return models;
+      }
+
+      return [];
+    } catch (error) {
+      logger.warn('Failed to query Ollama models:', error instanceof Error ? error.message : error);
+      return [];
+    }
+  }
+
+  /**
+   * Select the best available Ollama model
+   */
+  private static async selectOllamaModel(baseUrl: string, requestedModel?: string): Promise<string> {
+    const availableModels = await this.getAvailableOllamaModels(baseUrl);
+
+    if (availableModels.length === 0) {
+      logger.warn('No Ollama models found, using default model name');
+      return requestedModel || DEFAULT_MODELS.ollama;
+    }
+
+    // If requested model exists, use it
+    if (requestedModel && availableModels.includes(requestedModel)) {
+      logger.info(`Using requested Ollama model: ${requestedModel}`);
+      return requestedModel;
+    }
+
+    // Find first preferred model that's available
+    for (const preferred of PREFERRED_OLLAMA_MODELS) {
+      if (availableModels.includes(preferred)) {
+        logger.info(`Using preferred available model: ${preferred}${requestedModel ? ` (requested: ${requestedModel} not found)` : ''}`);
+        return preferred;
+      }
+    }
+
+    // Fallback to first available model
+    const fallback = availableModels[0];
+    logger.warn(`Using fallback Ollama model: ${fallback}${requestedModel ? ` (requested: ${requestedModel} not found)` : ''}`);
+    return fallback;
   }
 
   /**
@@ -55,20 +130,39 @@ export class LLMService {
       case 'ollama':
         return new Ollama({
           baseUrl: process.env.OLLAMA_BASE_URL || DEFAULT_PROVIDER_URLS.ollama,
-          model: model || process.env.OLLAMA_MODEL || DEFAULT_MODELS.ollama,
+          model: model || DEFAULT_MODELS.ollama, // Model should be pre-selected
           temperature: temperature,
         }) as any as BaseLanguageModel;
 
       case 'ollama-remote':
         return new Ollama({
           baseUrl: process.env.OLLAMA_REMOTE_URL || process.env.OLLAMA_BASE_URL,
-          model: model || process.env.OLLAMA_MODEL || DEFAULT_MODELS['ollama-remote'],
+          model: model || DEFAULT_MODELS['ollama-remote'], // Model should be pre-selected
           temperature: temperature,
         }) as any as BaseLanguageModel;
 
       default:
         throw new Error(`Unsupported AI provider: ${provider}`);
     }
+  }
+
+  /**
+   * Async factory method to create LLMService with auto-detected models
+   */
+  static async create(config: LLMConfig): Promise<LLMService> {
+    const finalConfig = { ...DEFAULT_MODEL_CONFIG, ...config };
+
+    // Auto-detect Ollama model if needed
+    if ((finalConfig.provider === 'ollama' || finalConfig.provider === 'ollama-remote') && !finalConfig.model) {
+      const baseUrl = finalConfig.provider === 'ollama-remote'
+        ? process.env.OLLAMA_REMOTE_URL || process.env.OLLAMA_BASE_URL || DEFAULT_PROVIDER_URLS.ollama
+        : process.env.OLLAMA_BASE_URL || DEFAULT_PROVIDER_URLS.ollama;
+
+      const requestedModel = process.env.OLLAMA_MODEL;
+      finalConfig.model = await this.selectOllamaModel(baseUrl, requestedModel);
+    }
+
+    return new LLMService(finalConfig);
   }
 
   /**
@@ -256,14 +350,15 @@ export class LLMService {
 
 /**
  * Factory function to create LLM service with default config
+ * @deprecated Use LLMService.create() instead for better model detection
  */
-export function createLLMService(overrides?: Partial<LLMConfig>): LLMService {
+export async function createLLMService(overrides?: Partial<LLMConfig>): Promise<LLMService> {
   const defaultConfig: LLMConfig = {
     provider: (process.env.DEFAULT_AI_PROVIDER as AIProvider) || 'ollama',
-    model: undefined, // Will use provider's default
+    model: undefined, // Will be auto-detected for Ollama
     temperature: 0.7,
     maxTokens: parseInt(process.env.MAX_TOKENS_PER_REQUEST || '4096'),
   };
 
-  return new LLMService({ ...defaultConfig, ...overrides });
+  return LLMService.create({ ...defaultConfig, ...overrides });
 }
