@@ -23,9 +23,9 @@ export class AdminController {
         message: 'Models synced successfully',
         data: {
           totalModels: models.length,
-          availableModels: models.filter(m => m.isAvailable).length,
-          enabledModels: models.filter(m => m.isEnabled && m.isAvailable).length,
-          models: models.map(m => ({
+          availableModels: models.filter((m) => m.isAvailable).length,
+          enabledModels: models.filter((m) => m.isEnabled && m.isAvailable).length,
+          models: models.map((m) => ({
             ...m,
             size: m.size ? m.size.toString() : null,
           })),
@@ -52,7 +52,7 @@ export class AdminController {
     res.json({
       success: true,
       data: {
-        models: models.map(m => ({
+        models: models.map((m) => ({
           id: m.id,
           name: m.name,
           displayName: m.displayName,
@@ -96,7 +96,7 @@ export class AdminController {
           await OllamaModelService.syncModelsFromOllama();
           logger.info(`Model ${modelName} pulled and synced successfully`);
         })
-        .catch(error => {
+        .catch((error) => {
           logger.error(`Failed to pull model ${modelName}:`, error);
         });
 

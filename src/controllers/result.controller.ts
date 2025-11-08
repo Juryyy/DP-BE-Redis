@@ -45,7 +45,7 @@ export class ResultController {
       }
 
       const combinedResult = prompts
-        .map(p => `## ${p.content}\n\n${p.result || ''}`)
+        .map((p) => `## ${p.content}\n\n${p.result || ''}`)
         .join('\n\n---\n\n');
 
       result = await prisma.result.create({
@@ -140,9 +140,7 @@ export class ResultController {
         orderBy: { priority: 'asc' },
       });
 
-      newContent = prompts
-        .map(p => `## ${p.content}\n\n${p.result || ''}`)
-        .join('\n\n---\n\n');
+      newContent = prompts.map((p) => `## ${p.content}\n\n${p.result || ''}`).join('\n\n---\n\n');
     } else {
       newContent = `${currentResult.content}\n\n---\n\n### Modifications\n${modificationPrompt}`;
     }
@@ -176,7 +174,7 @@ export class ResultController {
         diff: {
           previousVersion: currentResult.version,
           newVersion,
-          changes: changes.map(change => ({
+          changes: changes.map((change) => ({
             added: change.added,
             removed: change.removed,
             value: change.value,

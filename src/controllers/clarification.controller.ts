@@ -22,7 +22,7 @@ export class ClarificationController {
       success: true,
       data: {
         sessionId,
-        clarifications: clarifications.map(c => ({
+        clarifications: clarifications.map((c) => ({
           id: c.id,
           question: c.content,
           context: c.context,

@@ -36,14 +36,18 @@ export class ProcessingQueueService {
     const contextWindow = await OllamaModelService.getModelContextWindow(modelName);
 
     if (!contextWindow) {
-      logger.warn(`No context window found for model ${modelName}, using conservative 100KB threshold`);
+      logger.warn(
+        `No context window found for model ${modelName}, using conservative 100KB threshold`
+      );
       return contentSize > 100000;
     }
 
     const estimatedTokens = this.estimateTokens(contentSize);
     const safetyThreshold = contextWindow * 0.8; // Use 80% of available context
 
-    logger.info(`Content check: ${estimatedTokens} estimated tokens vs ${safetyThreshold} safe limit (${contextWindow} max) for model ${modelName}`);
+    logger.info(
+      `Content check: ${estimatedTokens} estimated tokens vs ${safetyThreshold} safe limit (${contextWindow} max) for model ${modelName}`
+    );
 
     return estimatedTokens > safetyThreshold;
   }
@@ -58,11 +62,7 @@ export class ProcessingQueueService {
       };
 
       // Lower number = higher priority (Redis sorted set score)
-      await redisClient.zadd(
-        REDIS_KEYS.PROCESSING_QUEUE,
-        priority,
-        JSON.stringify(job)
-      );
+      await redisClient.zadd(REDIS_KEYS.PROCESSING_QUEUE, priority, JSON.stringify(job));
 
       logger.info(`Enqueued prompt ${promptId} with priority ${priority}`);
 
@@ -74,7 +74,9 @@ export class ProcessingQueueService {
     }
   }
 
-  static async enqueueMultiple(prompts: Array<{ sessionId: string; promptId: string; priority: number }>): Promise<void> {
+  static async enqueueMultiple(
+    prompts: Array<{ sessionId: string; promptId: string; priority: number }>
+  ): Promise<void> {
     try {
       const pipeline = redisClient.pipeline();
 
@@ -86,11 +88,7 @@ export class ProcessingQueueService {
           createdAt: new Date(),
         };
 
-        pipeline.zadd(
-          REDIS_KEYS.PROCESSING_QUEUE,
-          prompt.priority,
-          JSON.stringify(job)
-        );
+        pipeline.zadd(REDIS_KEYS.PROCESSING_QUEUE, prompt.priority, JSON.stringify(job));
       }
 
       await pipeline.exec();
@@ -139,7 +137,9 @@ export class ProcessingQueueService {
         this.processingJobs.delete(job.promptId);
 
         const activeCount = await SessionService.getActiveSessionCount();
-        const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_PROCESSING || String(MAX_CONCURRENT_PROCESSING));
+        const maxConcurrent = parseInt(
+          process.env.MAX_CONCURRENT_PROCESSING || String(MAX_CONCURRENT_PROCESSING)
+        );
 
         if (activeCount >= maxConcurrent) {
           logger.warn(`Max concurrent processing limit (${maxConcurrent}) reached, pausing`);
@@ -193,9 +193,10 @@ export class ProcessingQueueService {
       // Get LLM service and model name for context window checking
       const llmService = await createLLMService();
       const provider = process.env.DEFAULT_AI_PROVIDER || 'ollama';
-      const modelName = provider === 'ollama' || provider === 'ollama-remote'
-        ? await OllamaModelService.getBestAvailableModel() || 'llama3.1:8b'
-        : 'gpt-4'; // Default for non-Ollama providers
+      const modelName =
+        provider === 'ollama' || provider === 'ollama-remote'
+          ? (await OllamaModelService.getBestAvailableModel()) || 'llama3.1:8b'
+          : 'gpt-4'; // Default for non-Ollama providers
 
       // Check if this is a GLOBAL prompt with too much content
       if (prompt.targetType === 'GLOBAL') {
@@ -203,8 +204,16 @@ export class ProcessingQueueService {
         const shouldSplit = await this.shouldSplitContent(totalSize, modelName);
 
         if (shouldSplit) {
-          logger.warn(`GLOBAL prompt with ${totalSize} characters (${Math.round(totalSize/1000)}KB) exceeds model ${modelName} context window. Auto-splitting into file-by-file processing.`);
-          await this.processGlobalPromptSequentially(sessionId, prompt, sessionFiles, previousResults, modelName);
+          logger.warn(
+            `GLOBAL prompt with ${totalSize} characters (${Math.round(totalSize / 1000)}KB) exceeds model ${modelName} context window. Auto-splitting into file-by-file processing.`
+          );
+          await this.processGlobalPromptSequentially(
+            sessionId,
+            prompt,
+            sessionFiles,
+            previousResults,
+            modelName
+          );
           return;
         }
       }
@@ -213,21 +222,27 @@ export class ProcessingQueueService {
 
       const conversationHistory = await ConversationService.getConversationHistory(sessionId);
 
-      logger.info(`Prompt size: ${fullPrompt.length} characters, System prompt size: ${CZECH_SYSTEM_PROMPT.length} characters`);
+      logger.info(
+        `Prompt size: ${fullPrompt.length} characters, System prompt size: ${CZECH_SYSTEM_PROMPT.length} characters`
+      );
 
       // Check if prompt is too large for model's context window
       const promptSize = fullPrompt.length + CZECH_SYSTEM_PROMPT.length;
       const shouldSplitPrompt = await this.shouldSplitContent(promptSize, modelName);
 
       if (shouldSplitPrompt) {
-        logger.warn(`LARGE PROMPT WARNING: ${promptSize} characters (${Math.round(promptSize / 1000)}KB) exceeds model ${modelName} context window. This may cause timeouts or errors.`);
+        logger.warn(
+          `LARGE PROMPT WARNING: ${promptSize} characters (${Math.round(promptSize / 1000)}KB) exceeds model ${modelName} context window. This may cause timeouts or errors.`
+        );
       }
 
       const startTime = Date.now();
       const response = await llmService.complete(fullPrompt, CZECH_SYSTEM_PROMPT);
       const processingTime = Date.now() - startTime;
 
-      logger.info(`LLM response received: ${response.content.length} characters, tokens: ${response.tokensUsed || 'unknown'}, took ${processingTime}ms`);
+      logger.info(
+        `LLM response received: ${response.content.length} characters, tokens: ${response.tokensUsed || 'unknown'}, took ${processingTime}ms`
+      );
 
       const needsClarification = LLMService.detectUncertainty(response.content);
       const clarificationQuestions = needsClarification
@@ -257,17 +272,19 @@ export class ProcessingQueueService {
 
       if (needsClarification && clarificationQuestions.length > 0) {
         for (const question of clarificationQuestions) {
-          await ConversationService.createClarification(
-            sessionId,
-            question,
-            { promptId, relatedToResult: response.content }
-          );
+          await ConversationService.createClarification(sessionId, question, {
+            promptId,
+            relatedToResult: response.content,
+          });
         }
 
         logger.info(`Created ${clarificationQuestions.length} clarification questions`);
       }
 
       logger.info(`Successfully processed prompt ${promptId} in ${processingTime}ms`);
+
+      // Check if all prompts for this session are completed
+      await this.checkAndUpdateSessionStatus(sessionId);
     } catch (error) {
       logger.error(`Error processing prompt ${promptId}:`, error);
 
@@ -281,6 +298,37 @@ export class ProcessingQueueService {
       });
 
       await SessionService.updateSessionStatus(sessionId, SessionStatus.FAILED);
+    }
+  }
+
+  /**
+   * Check if all prompts for a session are completed and update session status accordingly
+   */
+  private static async checkAndUpdateSessionStatus(sessionId: string): Promise<void> {
+    try {
+      const prompts = await prisma.prompt.findMany({
+        where: { sessionId },
+        select: { status: true },
+      });
+
+      const allCompleted = prompts.every((p) => p.status === PromptStatus.COMPLETED);
+      const anyFailed = prompts.some((p) => p.status === PromptStatus.FAILED);
+
+      if (anyFailed) {
+        await SessionService.updateSessionStatus(sessionId, SessionStatus.FAILED);
+      } else if (allCompleted && prompts.length > 0) {
+        // Check if there are pending clarifications before marking as completed
+        const pendingClarifications = await ConversationService.getPendingClarifications(sessionId);
+
+        if (pendingClarifications.length > 0) {
+          logger.info(`Session ${sessionId} has ${pendingClarifications.length} pending clarifications, keeping status as PROCESSING`);
+          // Keep session in PROCESSING state while waiting for user responses
+        } else {
+          await SessionService.updateSessionStatus(sessionId, SessionStatus.COMPLETED);
+        }
+      }
+    } catch (error) {
+      logger.error(`Error checking session status for ${sessionId}:`, error);
     }
   }
 
@@ -328,7 +376,9 @@ export class ProcessingQueueService {
     let totalTokens = 0;
     const overallStartTime = Date.now();
 
-    logger.info(`Processing ${sessionFiles.length} files sequentially for GLOBAL prompt using model ${modelName}`);
+    logger.info(
+      `Processing ${sessionFiles.length} files sequentially for GLOBAL prompt using model ${modelName}`
+    );
 
     for (let i = 0; i < sessionFiles.length; i++) {
       const file = sessionFiles[i];
@@ -338,7 +388,9 @@ export class ProcessingQueueService {
         continue;
       }
 
-      logger.info(`Processing file ${i + 1}/${sessionFiles.length}: ${file.originalName} (${file.extractedText.length} characters)`);
+      logger.info(
+        `Processing file ${i + 1}/${sessionFiles.length}: ${file.originalName} (${file.extractedText.length} characters)`
+      );
 
       // Check if individual file is too large and needs chunking
       const fileSize = file.extractedText.length;
@@ -377,16 +429,18 @@ export class ProcessingQueueService {
           const response = await llmService.complete(chunkPrompt, CZECH_SYSTEM_PROMPT);
           const processingTime = Date.now() - startTime;
 
-          logger.info(`File ${i + 1}/${sessionFiles.length}, chunk ${chunkIdx + 1}/${chunks.length} processed: ${response.content.length} characters, took ${processingTime}ms`);
+          logger.info(
+            `File ${i + 1}/${sessionFiles.length}, chunk ${chunkIdx + 1}/${chunks.length} processed: ${response.content.length} characters, took ${processingTime}ms`
+          );
 
           chunkResults.push(response.content);
           totalTokens += response.tokensUsed || 0;
         }
 
         // Combine chunk results
-        const combinedChunkResult = chunkResults.map((result, idx) =>
-          `### Část ${idx + 1}\n\n${result}`
-        ).join('\n\n');
+        const combinedChunkResult = chunkResults
+          .map((result, idx) => `### Část ${idx + 1}\n\n${result}`)
+          .join('\n\n');
 
         fileResults.push(combinedChunkResult);
       } else {
@@ -411,7 +465,9 @@ export class ProcessingQueueService {
         const response = await llmService.complete(filePrompt, CZECH_SYSTEM_PROMPT);
         const processingTime = Date.now() - startTime;
 
-        logger.info(`File ${i + 1}/${sessionFiles.length} processed: ${response.content.length} characters, took ${processingTime}ms`);
+        logger.info(
+          `File ${i + 1}/${sessionFiles.length} processed: ${response.content.length} characters, took ${processingTime}ms`
+        );
 
         fileResults.push(response.content);
         totalTokens += response.tokensUsed || 0;
@@ -419,10 +475,12 @@ export class ProcessingQueueService {
     }
 
     // Combine all results
-    const combinedResult = fileResults.map((result, idx) => {
-      const file = sessionFiles[idx];
-      return `## ${file.originalName}\n\n${result}`;
-    }).join('\n\n---\n\n');
+    const combinedResult = fileResults
+      .map((result, idx) => {
+        const file = sessionFiles[idx];
+        return `## ${file.originalName}\n\n${result}`;
+      })
+      .join('\n\n---\n\n');
 
     const totalProcessingTime = Date.now() - overallStartTime;
 
@@ -448,13 +506,21 @@ export class ProcessingQueueService {
       }
     );
 
-    logger.info(`Successfully processed GLOBAL prompt with ${sessionFiles.length} files in ${totalProcessingTime}ms (${Math.round(totalProcessingTime/1000)}s)`);
+    logger.info(
+      `Successfully processed GLOBAL prompt with ${sessionFiles.length} files in ${totalProcessingTime}ms (${Math.round(totalProcessingTime / 1000)}s)`
+    );
+
+    // Check if all prompts for this session are completed
+    await this.checkAndUpdateSessionStatus(sessionId);
   }
 
   /**
    * Get results from previous prompts (for context accumulation)
    */
-  private static async getPreviousResults(sessionId: string, currentPriority: number): Promise<string[]> {
+  private static async getPreviousResults(
+    sessionId: string,
+    currentPriority: number
+  ): Promise<string[]> {
     try {
       const previousPrompts = await prisma.prompt.findMany({
         where: {
@@ -466,9 +532,7 @@ export class ProcessingQueueService {
         select: { result: true },
       });
 
-      return previousPrompts
-        .filter((p) => p.result)
-        .map((p) => p.result!);
+      return previousPrompts.filter((p) => p.result).map((p) => p.result!);
     } catch (error) {
       logger.error('Error getting previous results:', error);
       return [];
@@ -510,8 +574,8 @@ export class ProcessingQueueService {
       for (const file of sessionFiles) {
         if (file.sections) {
           const sections = Array.isArray(file.sections) ? file.sections : [];
-          const targetSection = sections.find(
-            (s: any) => s.title.toLowerCase().includes(prompt.targetSection.toLowerCase())
+          const targetSection = sections.find((s: any) =>
+            s.title.toLowerCase().includes(prompt.targetSection.toLowerCase())
           );
 
           if (targetSection) {

@@ -46,7 +46,10 @@ export class LLMService {
   private static async getAvailableOllamaModels(baseUrl: string): Promise<string[]> {
     try {
       // Check cache first
-      if (this.ollamaModelsCache && Date.now() - this.ollamaModelsCache.timestamp < OLLAMA_MODEL_CACHE_TTL) {
+      if (
+        this.ollamaModelsCache &&
+        Date.now() - this.ollamaModelsCache.timestamp < OLLAMA_MODEL_CACHE_TTL
+      ) {
         logger.info('Using cached Ollama models');
         return this.ollamaModelsCache.models;
       }
@@ -78,7 +81,10 @@ export class LLMService {
    * Select the best available Ollama model
    * First tries database, then falls back to API detection
    */
-  private static async selectOllamaModel(baseUrl: string, requestedModel?: string): Promise<string> {
+  private static async selectOllamaModel(
+    baseUrl: string,
+    requestedModel?: string
+  ): Promise<string> {
     // Try to get model from database first
     try {
       const dbModel = await OllamaModelService.getBestAvailableModel();
@@ -117,14 +123,18 @@ export class LLMService {
     // Find first preferred model that's available
     for (const preferred of PREFERRED_OLLAMA_MODELS) {
       if (availableModels.includes(preferred)) {
-        logger.info(`Using preferred available model: ${preferred}${requestedModel ? ` (requested: ${requestedModel} not found)` : ''}`);
+        logger.info(
+          `Using preferred available model: ${preferred}${requestedModel ? ` (requested: ${requestedModel} not found)` : ''}`
+        );
         return preferred;
       }
     }
 
     // Fallback to first available model
     const fallback = availableModels[0];
-    logger.warn(`Using fallback Ollama model: ${fallback}${requestedModel ? ` (requested: ${requestedModel} not found)` : ''}`);
+    logger.warn(
+      `Using fallback Ollama model: ${fallback}${requestedModel ? ` (requested: ${requestedModel} not found)` : ''}`
+    );
     return fallback;
   }
 
@@ -177,10 +187,16 @@ export class LLMService {
     const finalConfig = { ...DEFAULT_MODEL_CONFIG, ...config };
 
     // Auto-detect Ollama model if needed
-    if ((finalConfig.provider === 'ollama' || finalConfig.provider === 'ollama-remote') && !finalConfig.model) {
-      const baseUrl = finalConfig.provider === 'ollama-remote'
-        ? process.env.OLLAMA_REMOTE_URL || process.env.OLLAMA_BASE_URL || DEFAULT_PROVIDER_URLS.ollama
-        : process.env.OLLAMA_BASE_URL || DEFAULT_PROVIDER_URLS.ollama;
+    if (
+      (finalConfig.provider === 'ollama' || finalConfig.provider === 'ollama-remote') &&
+      !finalConfig.model
+    ) {
+      const baseUrl =
+        finalConfig.provider === 'ollama-remote'
+          ? process.env.OLLAMA_REMOTE_URL ||
+            process.env.OLLAMA_BASE_URL ||
+            DEFAULT_PROVIDER_URLS.ollama
+          : process.env.OLLAMA_BASE_URL || DEFAULT_PROVIDER_URLS.ollama;
 
       const requestedModel = process.env.OLLAMA_MODEL;
       finalConfig.model = await this.selectOllamaModel(baseUrl, requestedModel);
@@ -213,32 +229,47 @@ export class LLMService {
 
       let content: string;
 
-      // Handle array response (LangChain Ollama returns arrays)
       if (Array.isArray(response.content)) {
         content = response.content.join('');
         logger.info(`Converted array response to string: ${content.length} characters`);
-      }
-      // Handle object with numeric keys (partial/chunked response)
-      else if (response.content && typeof response.content === 'object' && !Array.isArray(response.content)) {
+      } else if (
+        response.content &&
+        typeof response.content === 'object' &&
+        !Array.isArray(response.content)
+      ) {
         const keys = Object.keys(response.content);
-        if (keys.every(k => !isNaN(parseInt(k)))) {
+        if (keys.every((k) => !isNaN(parseInt(k)))) {
           const sorted = keys.sort((a, b) => parseInt(a) - parseInt(b));
-          content = sorted.map(k => (response.content as any)[k]).join('');
-          logger.info(`Converted object response to string: ${content.length} characters from ${keys.length} chunks`);
+          content = sorted.map((k) => (response.content as any)[k]).join('');
+          logger.info(
+            `Converted object response to string: ${content.length} characters from ${keys.length} chunks`
+          );
         } else {
           content = JSON.stringify(response.content);
         }
-      }
-      // Handle string response
-      else if (typeof response.content === 'string') {
+      } else if (typeof response.content === 'string') {
         content = response.content;
-      }
-      // Handle other types
-      else if (response.content !== null && response.content !== undefined) {
+      } else if (response.content !== null && response.content !== undefined) {
         content = JSON.stringify(response.content);
-      }
-      // Truly empty
-      else {
+      } else if (!response.content || response.content === undefined) {
+        const responseKeys = Object.keys(response);
+        if (responseKeys.length > 0 && responseKeys.every((k) => !isNaN(parseInt(k)))) {
+          const sorted = responseKeys.sort((a, b) => parseInt(a) - parseInt(b));
+          content = sorted.map((k) => (response as any)[k]).join('');
+          logger.info(
+            `Converted array-like response object to string: ${content.length} characters from ${responseKeys.length} chunks`
+          );
+        } else {
+          logger.error('LLM returned empty response', {
+            provider: this.config.provider,
+            model: this.config.model,
+            responseType: typeof response.content,
+            isArray: Array.isArray(response.content),
+            responseKeys: Object.keys(response).slice(0, 10),
+          });
+          content = '';
+        }
+      } else {
         logger.error('LLM returned empty response', {
           provider: this.config.provider,
           model: this.config.model,
@@ -249,7 +280,9 @@ export class LLMService {
       }
 
       if (!content || content.trim().length === 0) {
-        throw new Error('LLM returned empty content. The model may be unavailable or the prompt may be too large.');
+        throw new Error(
+          'LLM returned empty content. The model may be unavailable or the prompt may be too large.'
+        );
       }
 
       return {
@@ -286,27 +319,42 @@ export class LLMService {
 
       let content: string;
 
-      // Handle array response (LangChain Ollama returns arrays)
       if (Array.isArray(response.content)) {
         content = response.content.join('');
-      }
-      // Handle object with numeric keys (partial/chunked response)
-      else if (response.content && typeof response.content === 'object' && !Array.isArray(response.content)) {
+      } else if (
+        response.content &&
+        typeof response.content === 'object' &&
+        !Array.isArray(response.content)
+      ) {
         const keys = Object.keys(response.content);
-        if (keys.every(k => !isNaN(parseInt(k)))) {
+        if (keys.every((k) => !isNaN(parseInt(k)))) {
           const sorted = keys.sort((a, b) => parseInt(a) - parseInt(b));
-          content = sorted.map(k => (response.content as any)[k]).join('');
+          content = sorted.map((k) => (response.content as any)[k]).join('');
         } else {
           content = JSON.stringify(response.content);
         }
-      }
-      // Handle string response
-      else if (typeof response.content === 'string') {
+      } else if (typeof response.content === 'string') {
         content = response.content;
-      }
-      // Handle other types
-      else if (response.content !== null && response.content !== undefined) {
+      } else if (response.content !== null && response.content !== undefined) {
         content = JSON.stringify(response.content);
+      } else if (!response.content || response.content === undefined) {
+        const responseKeys = Object.keys(response);
+        if (responseKeys.length > 0 && responseKeys.every((k) => !isNaN(parseInt(k)))) {
+          const sorted = responseKeys.sort((a, b) => parseInt(a) - parseInt(b));
+          content = sorted.map((k) => (response as any)[k]).join('');
+          logger.info(
+            `[chat] Converted array-like response object to string: ${content.length} characters from ${responseKeys.length} chunks`
+          );
+        } else {
+          logger.error('LLM returned empty response', {
+            provider: this.config.provider,
+            model: this.config.model,
+            responseType: typeof response.content,
+            isArray: Array.isArray(response.content),
+            responseKeys: Object.keys(response).slice(0, 10),
+          });
+          content = '';
+        }
       }
       // Truly empty
       else {
@@ -320,7 +368,9 @@ export class LLMService {
       }
 
       if (!content || content.trim().length === 0) {
-        throw new Error('LLM returned empty content. The model may be unavailable or the prompt may be too large.');
+        throw new Error(
+          'LLM returned empty content. The model may be unavailable or the prompt may be too large.'
+        );
       }
 
       return {
@@ -368,9 +418,10 @@ export class LLMService {
   static async checkModelAvailability(provider: AIProvider, model: string): Promise<boolean> {
     if (provider === 'ollama' || provider === 'ollama-remote') {
       try {
-        const baseUrl = provider === 'ollama-remote'
-          ? process.env.OLLAMA_REMOTE_URL
-          : process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+        const baseUrl =
+          provider === 'ollama-remote'
+            ? process.env.OLLAMA_REMOTE_URL
+            : process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 
         const response = await axios.get(`${baseUrl}/api/tags`);
         const models = response.data.models || [];
@@ -392,9 +443,10 @@ export class LLMService {
   static async listAvailableModels(provider: AIProvider): Promise<string[]> {
     if (provider === 'ollama' || provider === 'ollama-remote') {
       try {
-        const baseUrl = provider === 'ollama-remote'
-          ? process.env.OLLAMA_REMOTE_URL
-          : process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+        const baseUrl =
+          provider === 'ollama-remote'
+            ? process.env.OLLAMA_REMOTE_URL
+            : process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 
         const response = await axios.get(`${baseUrl}/api/tags`);
         const models = response.data.models || [];
@@ -438,19 +490,46 @@ export class LLMService {
    * Detect uncertainty in AI response (for clarification step)
    */
   static detectUncertainty(response: string): boolean {
-    return UNCERTAINTY_PATTERNS.some(pattern => pattern.test(response));
+    return UNCERTAINTY_PATTERNS.some((pattern) => pattern.test(response));
   }
 
   /**
    * Extract clarification questions from AI response
    */
   static extractClarificationQuestions(response: string): string[] {
-    const lines = response.split('\n');
     const questions: string[] = [];
 
+    // Pattern 1: Extract questions from HTML comments with OTÁZKA/QUESTION markers
+    const htmlCommentPattern = /<!--\s*(?:OTÁZKA|QUESTION)\?:\s*["""]?([^"""]+?)["""]?\s*-->/gi;
+    let match;
+    while ((match = htmlCommentPattern.exec(response)) !== null) {
+      const question = match[1].trim();
+      if (question.length > 5) {
+        questions.push(question);
+      }
+    }
+
+    // Pattern 2: Extract questions from lines with OTÁZKA/QUESTION markers
+    const markerPattern = /(?:OTÁZKA|QUESTION)\?:\s*["""]?([^"""]+?)["""]?$/gim;
+    while ((match = markerPattern.exec(response)) !== null) {
+      const question = match[1].trim();
+      if (question.length > 5 && !questions.includes(question)) {
+        questions.push(question);
+      }
+    }
+
+    // Pattern 3: Extract plain questions (existing logic)
+    const lines = response.split('\n');
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed.endsWith('?') && trimmed.length > 10) {
+      if (
+        trimmed.endsWith('?') &&
+        trimmed.length > 10 &&
+        !trimmed.includes('<!--') &&
+        !trimmed.includes('OTÁZKA') &&
+        !trimmed.includes('QUESTION') &&
+        !questions.includes(trimmed)
+      ) {
         questions.push(trimmed);
       }
     }
