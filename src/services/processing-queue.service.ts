@@ -158,6 +158,17 @@ export class ProcessingQueueService {
 
       const previousResults = await this.getPreviousResults(sessionId, prompt.priority);
 
+      // Check if this is a GLOBAL prompt with too much content
+      if (prompt.targetType === 'GLOBAL') {
+        const totalSize = sessionFiles.reduce((sum, f) => sum + (f.extractedText?.length || 0), 0);
+
+        if (totalSize > 100000) {
+          logger.warn(`GLOBAL prompt with ${totalSize} characters (${Math.round(totalSize/1000)}KB). Auto-splitting into file-by-file processing.`);
+          await this.processGlobalPromptSequentially(sessionId, prompt, sessionFiles, previousResults);
+          return;
+        }
+      }
+
       const fullPrompt = this.buildPromptWithContext(prompt, sessionFiles, previousResults);
 
       const conversationHistory = await ConversationService.getConversationHistory(sessionId);
@@ -230,6 +241,91 @@ export class ProcessingQueueService {
 
       await SessionService.updateSessionStatus(sessionId, SessionStatus.FAILED);
     }
+  }
+
+  /**
+   * Process GLOBAL prompt by splitting into file-by-file processing
+   */
+  private static async processGlobalPromptSequentially(
+    sessionId: string,
+    prompt: any,
+    sessionFiles: any[],
+    previousResults: string[]
+  ): Promise<void> {
+    const llmService = await createLLMService();
+    const fileResults: string[] = [];
+    let totalTokens = 0;
+    const overallStartTime = Date.now();
+
+    logger.info(`Processing ${sessionFiles.length} files sequentially for GLOBAL prompt`);
+
+    for (let i = 0; i < sessionFiles.length; i++) {
+      const file = sessionFiles[i];
+
+      if (!file.extractedText) {
+        logger.warn(`Skipping file ${file.originalName} - no extracted text`);
+        continue;
+      }
+
+      logger.info(`Processing file ${i + 1}/${sessionFiles.length}: ${file.originalName} (${file.extractedText.length} characters)`);
+
+      let filePrompt = '';
+
+      // Add previous file results as context
+      if (fileResults.length > 0) {
+        filePrompt += '# Výsledky z předchozích souborů:\n\n';
+        fileResults.forEach((result, idx) => {
+          const prevFile = sessionFiles[idx];
+          filePrompt += `## ${prevFile.originalName}:\n${result}\n\n`;
+        });
+        filePrompt += '---\n\n';
+      }
+
+      filePrompt += `# Obsah souboru: ${file.originalName}\n\n`;
+      filePrompt += file.extractedText + '\n\n';
+      filePrompt += `# Úkol:\n\n${prompt.content}\n`;
+
+      const startTime = Date.now();
+      const response = await llmService.complete(filePrompt, CZECH_SYSTEM_PROMPT);
+      const processingTime = Date.now() - startTime;
+
+      logger.info(`File ${i + 1}/${sessionFiles.length} processed: ${response.content.length} characters, took ${processingTime}ms`);
+
+      fileResults.push(response.content);
+      totalTokens += response.tokensUsed || 0;
+    }
+
+    // Combine all results
+    const combinedResult = fileResults.map((result, idx) => {
+      const file = sessionFiles[idx];
+      return `## ${file.originalName}\n\n${result}`;
+    }).join('\n\n---\n\n');
+
+    const totalProcessingTime = Date.now() - overallStartTime;
+
+    await prisma.prompt.update({
+      where: { id: prompt.id },
+      data: {
+        status: PromptStatus.COMPLETED,
+        completedAt: new Date(),
+        result: combinedResult,
+      },
+    });
+
+    await ConversationService.addMessage(
+      sessionId,
+      ConversationRole.ASSISTANT,
+      combinedResult,
+      ConversationType.GENERAL,
+      {
+        promptId: prompt.id,
+        tokensUsed: totalTokens,
+        processingTime: totalProcessingTime,
+        fileCount: sessionFiles.length,
+      }
+    );
+
+    logger.info(`Successfully processed GLOBAL prompt with ${sessionFiles.length} files in ${totalProcessingTime}ms (${Math.round(totalProcessingTime/1000)}s)`);
   }
 
   /**
