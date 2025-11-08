@@ -237,6 +237,24 @@ export class LLMService {
       else if (response.content !== null && response.content !== undefined) {
         content = JSON.stringify(response.content);
       }
+      // Handle case where response itself is array-like (has numeric keys)
+      else if (!response.content || response.content === undefined) {
+        const responseKeys = Object.keys(response);
+        if (responseKeys.length > 0 && responseKeys.every(k => !isNaN(parseInt(k)))) {
+          const sorted = responseKeys.sort((a, b) => parseInt(a) - parseInt(b));
+          content = sorted.map(k => (response as any)[k]).join('');
+          logger.info(`Converted array-like response object to string: ${content.length} characters from ${responseKeys.length} chunks`);
+        } else {
+          logger.error('LLM returned empty response', {
+            provider: this.config.provider,
+            model: this.config.model,
+            responseType: typeof response.content,
+            isArray: Array.isArray(response.content),
+            responseKeys: Object.keys(response).slice(0, 10),
+          });
+          content = '';
+        }
+      }
       // Truly empty
       else {
         logger.error('LLM returned empty response', {
@@ -307,6 +325,24 @@ export class LLMService {
       // Handle other types
       else if (response.content !== null && response.content !== undefined) {
         content = JSON.stringify(response.content);
+      }
+      // Handle case where response itself is array-like (has numeric keys)
+      else if (!response.content || response.content === undefined) {
+        const responseKeys = Object.keys(response);
+        if (responseKeys.length > 0 && responseKeys.every(k => !isNaN(parseInt(k)))) {
+          const sorted = responseKeys.sort((a, b) => parseInt(a) - parseInt(b));
+          content = sorted.map(k => (response as any)[k]).join('');
+          logger.info(`[chat] Converted array-like response object to string: ${content.length} characters from ${responseKeys.length} chunks`);
+        } else {
+          logger.error('LLM returned empty response', {
+            provider: this.config.provider,
+            model: this.config.model,
+            responseType: typeof response.content,
+            isArray: Array.isArray(response.content),
+            responseKeys: Object.keys(response).slice(0, 10),
+          });
+          content = '';
+        }
       }
       // Truly empty
       else {
