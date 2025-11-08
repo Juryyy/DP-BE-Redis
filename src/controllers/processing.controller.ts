@@ -35,7 +35,7 @@ export class ProcessingController {
       orderBy: { version: 'desc' },
     });
 
-    const completedCount = prompts.filter(p => p.status === PromptStatus.COMPLETED).length;
+    const completedCount = prompts.filter((p) => p.status === PromptStatus.COMPLETED).length;
     const totalCount = prompts.length;
     const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
@@ -48,19 +48,21 @@ export class ProcessingController {
         prompts: {
           total: totalCount,
           completed: completedCount,
-          processing: prompts.filter(p => p.status === PromptStatus.PROCESSING).length,
-          pending: prompts.filter(p => p.status === PromptStatus.PENDING).length,
-          failed: prompts.filter(p => p.status === PromptStatus.FAILED).length,
+          processing: prompts.filter((p) => p.status === PromptStatus.PROCESSING).length,
+          pending: prompts.filter((p) => p.status === PromptStatus.PENDING).length,
+          failed: prompts.filter((p) => p.status === PromptStatus.FAILED).length,
         },
         hasClarifications: pendingClarifications.length > 0,
         clarificationCount: pendingClarifications.length,
         hasResult: !!latestResult,
-        result: latestResult ? {
-          id: latestResult.id,
-          version: latestResult.version,
-          status: latestResult.status,
-          createdAt: latestResult.createdAt,
-        } : null,
+        result: latestResult
+          ? {
+              id: latestResult.id,
+              version: latestResult.version,
+              status: latestResult.status,
+              createdAt: latestResult.createdAt,
+            }
+          : null,
       },
     });
   }

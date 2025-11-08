@@ -72,8 +72,9 @@ export class UploadController {
 
     const overallEstimate = await TokenEstimatorService.estimateMultipleFiles(allTexts);
 
-    const canProcess = overallEstimate.recommendations.length > 0 &&
-      !overallEstimate.recommendations.some(r => r.includes('exceeds'));
+    const canProcess =
+      overallEstimate.recommendations.length > 0 &&
+      !overallEstimate.recommendations.some((r) => r.includes('exceeds'));
 
     res.json({
       success: true,

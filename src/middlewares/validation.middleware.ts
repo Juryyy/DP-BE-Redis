@@ -52,11 +52,7 @@ export const validateSession = async (
 /**
  * Validate file upload
  */
-export const validateFileUpload = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
+export const validateFileUpload = (req: Request, res: Response, next: NextFunction): void => {
   if (!req.files || (req.files as any[]).length === 0) {
     res.status(400).json({
       error: 'Bad Request',
@@ -73,7 +69,7 @@ export const validateFileUpload = (
  */
 export const validateRequiredFields = (fields: string[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const missing = fields.filter(field => !req.body[field]);
+    const missing = fields.filter((field) => !req.body[field]);
 
     if (missing.length > 0) {
       res.status(400).json({

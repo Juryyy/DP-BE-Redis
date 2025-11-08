@@ -62,9 +62,9 @@ export const OUTPUT_TOKEN_RATIO = 0.2;
 
 // Model usage thresholds for recommendations (in tokens)
 export const TOKEN_THRESHOLDS = {
-  small: 8000,      // Use cost-effective models
-  medium: 30000,    // Use mid-tier models
-  large: 100000,    // Use large context models
+  small: 8000, // Use cost-effective models
+  medium: 30000, // Use mid-tier models
+  large: 100000, // Use large context models
   veryLarge: 50000, // Trigger warning
 } as const;
 

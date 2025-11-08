@@ -25,7 +25,7 @@ export class OllamaModelService {
       logger.info(`Found ${ollamaModels.length} models in Ollama`);
 
       const existingModels = await prisma.ollamaModel.findMany();
-      const existingModelNames = new Set(existingModels.map(m => m.name));
+      const existingModelNames = new Set(existingModels.map((m) => m.name));
 
       for (const model of ollamaModels) {
         const family = model.details?.family || model.details?.families?.[0] || null;
@@ -57,7 +57,7 @@ export class OllamaModelService {
         });
       }
 
-      const ollamaModelNames = new Set(ollamaModels.map(m => m.name));
+      const ollamaModelNames = new Set(ollamaModels.map((m) => m.name));
       for (const existing of existingModels) {
         if (!ollamaModelNames.has(existing.name)) {
           await prisma.ollamaModel.update({
@@ -83,10 +83,7 @@ export class OllamaModelService {
         isAvailable: true,
         isEnabled: true,
       },
-      orderBy: [
-        { priority: 'asc' },
-        { usageCount: 'desc' },
-      ],
+      orderBy: [{ priority: 'asc' }, { usageCount: 'desc' }],
     });
 
     if (model) {
@@ -206,7 +203,10 @@ export class OllamaModelService {
   /**
    * Test if a specific model is working in Ollama
    */
-  static async testModel(modelName: string, baseUrl?: string): Promise<{
+  static async testModel(
+    modelName: string,
+    baseUrl?: string
+  ): Promise<{
     success: boolean;
     response?: string;
     error?: string;
@@ -318,7 +318,7 @@ export class OllamaModelService {
     const parts = modelName.split(':');
     const name = parts[0]
       .replace(/([a-z])([0-9])/gi, '$1 $2')
-      .replace(/\b\w/g, l => l.toUpperCase());
+      .replace(/\b\w/g, (l) => l.toUpperCase());
 
     const variant = parts[1] ? ` (${parts[1].toUpperCase()})` : '';
     return name + variant;

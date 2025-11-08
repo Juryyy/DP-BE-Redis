@@ -31,9 +31,7 @@ export const errorHandler = (
   }
 
   const statusCode = (error as any).statusCode || 500;
-  const message = process.env.NODE_ENV === 'development'
-    ? error.message
-    : 'Something went wrong';
+  const message = process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong';
 
   res.status(statusCode).json({
     error: error.name || 'Internal Server Error',

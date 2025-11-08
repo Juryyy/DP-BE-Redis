@@ -14,7 +14,11 @@ export class DocumentParserService {
   /**
    * Parse document based on file type
    */
-  static async parseDocument(filePath: string, filename: string, mimeType: string): Promise<ParsedDocument> {
+  static async parseDocument(
+    filePath: string,
+    filename: string,
+    mimeType: string
+  ): Promise<ParsedDocument> {
     logger.info(`Parsing document: ${filename} (${mimeType})`);
 
     try {
@@ -106,7 +110,10 @@ export class DocumentParserService {
     const sections = this.detectSectionsFromMarkdown(lines);
 
     // Extract plain text
-    const plainText = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const plainText = html
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
     const metadata: DocumentMetadata = {
       filename,
@@ -162,9 +169,9 @@ export class DocumentParserService {
       if (jsonData.length > 0) {
         // Extract headers (first row)
         const headers = jsonData[0].map((h: any) => String(h || ''));
-        const rows = jsonData.slice(1).map((row: any[]) =>
-          row.map((cell: any) => String(cell ?? ''))
-        );
+        const rows = jsonData
+          .slice(1)
+          .map((row: any[]) => row.map((cell: any) => String(cell ?? '')));
 
         // Create markdown table
         const tableMarkdown = this.createMarkdownTable(headers, rows);
@@ -213,9 +220,9 @@ export class DocumentParserService {
   private static detectSections(lines: string[]): DocumentSection[] {
     const sections: DocumentSection[] = [];
     const headingPatterns = [
-      /^([A-Z][A-Z0-9\s]{5,})$/,  // ALL CAPS headings
-      /^(\d+\.\s+.+)$/,            // Numbered headings
-      /^([A-Z].{10,}):$/,          // Headings ending with colon
+      /^([A-Z][A-Z0-9\s]{5,})$/, // ALL CAPS headings
+      /^(\d+\.\s+.+)$/, // Numbered headings
+      /^([A-Z].{10,}):$/, // Headings ending with colon
     ];
 
     for (let i = 0; i < lines.length; i++) {
@@ -226,14 +233,17 @@ export class DocumentParserService {
           // Find end of section
           let endLine = i + 1;
           for (let j = i + 1; j < lines.length; j++) {
-            if (headingPatterns.some(pattern => pattern.test(lines[j].trim()))) {
+            if (headingPatterns.some((pattern) => pattern.test(lines[j].trim()))) {
               endLine = j - 1;
               break;
             }
             endLine = j;
           }
 
-          const content = lines.slice(i + 1, endLine + 1).join('\n').trim();
+          const content = lines
+            .slice(i + 1, endLine + 1)
+            .join('\n')
+            .trim();
 
           sections.push({
             title: line,
@@ -275,7 +285,10 @@ export class DocumentParserService {
           endLine = j;
         }
 
-        const content = lines.slice(i + 1, endLine + 1).join('\n').trim();
+        const content = lines
+          .slice(i + 1, endLine + 1)
+          .join('\n')
+          .trim();
 
         sections.push({
           title,
@@ -380,8 +393,11 @@ export class DocumentParserService {
     if (lines.length < 2) return null;
 
     // Split by tabs or multiple spaces
-    const rows = lines.map(line =>
-      line.split(/\t|\s{3,}/).map(cell => cell.trim()).filter(cell => cell.length > 0)
+    const rows = lines.map((line) =>
+      line
+        .split(/\t|\s{3,}/)
+        .map((cell) => cell.trim())
+        .filter((cell) => cell.length > 0)
     );
 
     if (rows.length === 0 || rows[0].length === 0) return null;
@@ -407,7 +423,10 @@ export class DocumentParserService {
     if (lines.length < 2) return null;
 
     const parseRow = (line: string) =>
-      line.split('|').map(cell => cell.trim()).filter(cell => cell.length > 0);
+      line
+        .split('|')
+        .map((cell) => cell.trim())
+        .filter((cell) => cell.length > 0);
 
     const headers = parseRow(lines[0]);
     const dataRows = lines.slice(2).map(parseRow); // Skip separator line

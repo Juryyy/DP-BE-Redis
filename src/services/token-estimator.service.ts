@@ -147,11 +147,12 @@ export class TokenEstimatorService {
    * Estimate processing cost (approximate, in USD)
    */
   private static estimateCost(tokenCount: number, model: string): number {
-    const modelPricing = MODEL_PRICING[model as keyof typeof MODEL_PRICING] || DEFAULT_MODEL_PRICING;
+    const modelPricing =
+      MODEL_PRICING[model as keyof typeof MODEL_PRICING] || DEFAULT_MODEL_PRICING;
 
     // Estimate: input tokens + estimated output tokens
     const inputCost = (tokenCount / 1000000) * modelPricing.input;
-    const outputCost = (tokenCount * OUTPUT_TOKEN_RATIO / 1000000) * modelPricing.output;
+    const outputCost = ((tokenCount * OUTPUT_TOKEN_RATIO) / 1000000) * modelPricing.output;
 
     return Math.round((inputCost + outputCost) * 100) / 100; // Round to 2 decimals
   }
@@ -159,7 +160,10 @@ export class TokenEstimatorService {
   /**
    * Estimate tokens for multiple files
    */
-  static async estimateMultipleFiles(texts: string[], model: string = 'gpt-4'): Promise<TokenEstimate> {
+  static async estimateMultipleFiles(
+    texts: string[],
+    model: string = 'gpt-4'
+  ): Promise<TokenEstimate> {
     const combinedText = texts.join('\n\n');
     return this.estimateTokens(combinedText, model);
   }

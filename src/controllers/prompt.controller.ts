@@ -54,7 +54,7 @@ export class PromptController {
     const estimatedTimeSeconds = sortedPrompts.length * 10;
 
     await ProcessingQueueService.enqueueMultiple(
-      sortedPrompts.map(p => ({
+      sortedPrompts.map((p) => ({
         sessionId,
         promptId: p.id,
         priority: p.priority,
@@ -65,7 +65,7 @@ export class PromptController {
       success: true,
       data: {
         sessionId,
-        prompts: sortedPrompts.map(p => ({
+        prompts: sortedPrompts.map((p) => ({
           id: p.id,
           content: p.content,
           priority: p.priority,

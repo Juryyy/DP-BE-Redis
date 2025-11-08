@@ -15,7 +15,9 @@ export class SessionService {
   static async createSession(userId?: string, metadata?: any): Promise<SessionData> {
     const sessionId = uuidv4();
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + parseInt(process.env.SESSION_EXPIRE_SECONDS || '3600') * 1000);
+    const expiresAt = new Date(
+      now.getTime() + parseInt(process.env.SESSION_EXPIRE_SECONDS || '3600') * 1000
+    );
 
     // Create session in database
     const session = await prisma.session.create({

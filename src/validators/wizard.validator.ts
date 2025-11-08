@@ -15,11 +15,13 @@ export const submitPromptsSchema = Joi.object({
         targetType: Joi.string()
           .valid('FILE_SPECIFIC', 'LINE_SPECIFIC', 'SECTION_SPECIFIC', 'GLOBAL')
           .required(),
-        targetFileId: Joi.string().uuid().when('targetType', {
-          is: Joi.string().valid('FILE_SPECIFIC', 'LINE_SPECIFIC'),
-          then: Joi.required(),
-          otherwise: Joi.optional(),
-        }),
+        targetFileId: Joi.string()
+          .uuid()
+          .when('targetType', {
+            is: Joi.string().valid('FILE_SPECIFIC', 'LINE_SPECIFIC'),
+            then: Joi.required(),
+            otherwise: Joi.optional(),
+          }),
         targetLines: Joi.object({
           start: Joi.number().integer().min(1).required(),
           end: Joi.number().integer().min(1).required(),
@@ -54,16 +56,18 @@ export const confirmResultSchema = Joi.object({
 export const modifyResultSchema = Joi.object({
   sessionId: Joi.string().uuid().required(),
   resultId: Joi.string().uuid().required(),
-  modifications: Joi.alternatives().try(
-    Joi.string().min(1).max(10000), // Direct edit
-    Joi.array().items(
-      // New prompts
-      Joi.object({
-        content: Joi.string().required().min(1).max(10000),
-        priority: Joi.number().integer().min(0).required(),
-      })
+  modifications: Joi.alternatives()
+    .try(
+      Joi.string().min(1).max(10000), // Direct edit
+      Joi.array().items(
+        // New prompts
+        Joi.object({
+          content: Joi.string().required().min(1).max(10000),
+          priority: Joi.number().integer().min(0).required(),
+        })
+      )
     )
-  ).required(),
+    .required(),
 });
 
 export const aiProviderConfigSchema = Joi.object({
