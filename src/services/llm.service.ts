@@ -207,12 +207,16 @@ export class LLMService {
       logger.info(`Response received from ${this.config.provider}`, {
         hasContent: !!response.content,
         contentType: typeof response.content,
-        responseKeys: Object.keys(response),
-        additionalKwargs: response.additional_kwargs,
+        isArray: Array.isArray(response.content),
+        responseKeys: Object.keys(response).slice(0, 10),
       });
 
       let content: string;
-      if (typeof response.content === 'string') {
+
+      if (Array.isArray(response.content)) {
+        content = response.content.join('');
+        logger.info(`Converted array response to string: ${content.length} characters`);
+      } else if (typeof response.content === 'string') {
         content = response.content;
       } else if (response.content !== null && response.content !== undefined) {
         content = JSON.stringify(response.content);
@@ -221,7 +225,7 @@ export class LLMService {
           provider: this.config.provider,
           model: this.config.model,
           responseType: typeof response.content,
-          fullResponse: JSON.stringify(response),
+          isArray: Array.isArray(response.content),
         });
         content = '';
       }
@@ -263,7 +267,10 @@ export class LLMService {
       const response = await this.model.invoke(langchainMessages);
 
       let content: string;
-      if (typeof response.content === 'string') {
+
+      if (Array.isArray(response.content)) {
+        content = response.content.join('');
+      } else if (typeof response.content === 'string') {
         content = response.content;
       } else if (response.content !== null && response.content !== undefined) {
         content = JSON.stringify(response.content);
@@ -271,7 +278,8 @@ export class LLMService {
         logger.error('LLM returned empty response', {
           provider: this.config.provider,
           model: this.config.model,
-          responseType: typeof response.content
+          responseType: typeof response.content,
+          isArray: Array.isArray(response.content),
         });
         content = '';
       }
