@@ -105,7 +105,10 @@ class WebSocketService {
   private async setupRedisSubscriptions(): Promise<void> {
     try {
       // Subscribe to all session-related events
-      await redisSubClient.psubscribe('session:*', (message, channel) => {
+      await redisSubClient.psubscribe('session:*');
+
+      // Listen for messages on subscribed patterns
+      redisSubClient.on('pmessage', (pattern: string, channel: string, message: string) => {
         this.handleRedisMessage(channel, message);
       });
 
