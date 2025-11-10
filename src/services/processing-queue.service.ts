@@ -9,6 +9,7 @@ import { SessionService } from './session.service';
 import { OllamaModelService } from './ollama-model.service';
 import { ProcessingJob, ProcessingResult } from '../types';
 import { CZECH_SYSTEM_PROMPT, MAX_CONCURRENT_PROCESSING } from '../constants';
+import { websocketService } from './websocket.service';
 
 // Re-export for backward compatibility
 export { ProcessingJob, ProcessingResult };
@@ -169,6 +170,9 @@ export class ProcessingQueueService {
 
       await SessionService.updateSessionStatus(sessionId, SessionStatus.PROCESSING);
 
+      // Broadcast progress update
+      await this.broadcastSessionProgress(sessionId);
+
       const prompt = await prisma.prompt.findUnique({
         where: { id: promptId },
         include: {
@@ -270,11 +274,30 @@ export class ProcessingQueueService {
         }
       );
 
+      // Broadcast model result via WebSocket
+      websocketService.broadcastModelResult({
+        sessionId,
+        modelName: response.model || modelName,
+        duration: processingTime,
+        result: response.content,
+        status: 'completed',
+        timestamp: new Date().toISOString(),
+      });
+
       if (needsClarification && clarificationQuestions.length > 0) {
         for (const question of clarificationQuestions) {
-          await ConversationService.createClarification(sessionId, question, {
+          const clarification = await ConversationService.createClarification(sessionId, question, {
             promptId,
             relatedToResult: response.content,
+          });
+
+          // Broadcast clarification request
+          websocketService.broadcastClarification({
+            sessionId,
+            clarificationId: clarification.id,
+            question,
+            status: 'pending',
+            timestamp: new Date().toISOString(),
           });
         }
 
@@ -298,6 +321,55 @@ export class ProcessingQueueService {
       });
 
       await SessionService.updateSessionStatus(sessionId, SessionStatus.FAILED);
+
+      // Broadcast error via WebSocket
+      websocketService.broadcastError(sessionId, error instanceof Error ? error : new Error('Unknown error'));
+
+      // Broadcast updated progress
+      await this.broadcastSessionProgress(sessionId);
+    }
+  }
+
+  /**
+   * Broadcast session progress via WebSocket
+   */
+  private static async broadcastSessionProgress(sessionId: string): Promise<void> {
+    try {
+      const session = await SessionService.getSession(sessionId);
+      if (!session) return;
+
+      const prompts = await prisma.prompt.findMany({
+        where: { sessionId },
+        select: { status: true },
+      });
+
+      const total = prompts.length;
+      const completed = prompts.filter((p) => p.status === PromptStatus.COMPLETED).length;
+      const processing = prompts.filter((p) => p.status === PromptStatus.PROCESSING).length;
+      const pending = prompts.filter((p) => p.status === PromptStatus.PENDING).length;
+      const failed = prompts.filter((p) => p.status === PromptStatus.FAILED).length;
+
+      const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+      const pendingClarifications = await ConversationService.getPendingClarifications(sessionId);
+
+      websocketService.broadcastProgress({
+        sessionId,
+        status: session.status,
+        progress,
+        prompts: {
+          total,
+          completed,
+          processing,
+          pending,
+          failed,
+        },
+        hasClarifications: pendingClarifications.length > 0,
+        clarificationCount: pendingClarifications.length,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error(`Error broadcasting progress for ${sessionId}:`, error);
     }
   }
 
@@ -316,6 +388,7 @@ export class ProcessingQueueService {
 
       if (anyFailed) {
         await SessionService.updateSessionStatus(sessionId, SessionStatus.FAILED);
+        websocketService.broadcastError(sessionId, { message: 'One or more prompts failed' });
       } else if (allCompleted && prompts.length > 0) {
         // Check if there are pending clarifications before marking as completed
         const pendingClarifications = await ConversationService.getPendingClarifications(sessionId);
@@ -325,8 +398,19 @@ export class ProcessingQueueService {
           // Keep session in PROCESSING state while waiting for user responses
         } else {
           await SessionService.updateSessionStatus(sessionId, SessionStatus.COMPLETED);
+          // Broadcast completion
+          const result = await prisma.result.findFirst({
+            where: { sessionId },
+            orderBy: { version: 'desc' },
+          });
+          if (result) {
+            websocketService.broadcastCompletion(sessionId, result);
+          }
         }
       }
+
+      // Broadcast updated progress
+      await this.broadcastSessionProgress(sessionId);
     } catch (error) {
       logger.error(`Error checking session status for ${sessionId}:`, error);
     }

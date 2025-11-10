@@ -2,6 +2,7 @@ import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
 import * as fs from 'fs/promises';
+import { stat } from 'fs/promises';
 import { logger } from '../utils/logger';
 import MarkdownIt from 'markdown-it';
 import { markdownTable } from 'markdown-table';
@@ -11,6 +12,76 @@ import { DEFAULT_LANGUAGE } from '../constants';
 const md = new MarkdownIt();
 
 export class DocumentParserService {
+  /**
+   * Sanitize and validate date from PDF metadata
+   * Falls back to file system dates if invalid or missing
+   */
+  private static async sanitizeDate(
+    rawDate: string | Date | undefined,
+    filePath: string,
+    type: 'created' | 'modified'
+  ): Promise<Date | undefined> {
+    try {
+      // Try to parse the provided date first
+      if (rawDate) {
+        let parsedDate: Date | null = null;
+
+        if (rawDate instanceof Date) {
+          parsedDate = rawDate;
+        } else if (typeof rawDate === 'string') {
+          // Handle PDF date formats (D:YYYYMMDDHHmmSSOHH'mm')
+          const pdfDateMatch = rawDate.match(/D:(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?/);
+          if (pdfDateMatch) {
+            const [, year, month, day, hour = '00', minute = '00', second = '00'] = pdfDateMatch;
+            parsedDate = new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}Z`);
+          } else {
+            // Try standard date parsing
+            parsedDate = new Date(rawDate);
+          }
+        }
+
+        // Validate the parsed date
+        if (parsedDate && !isNaN(parsedDate.getTime())) {
+          // Check if date is reasonable (not in future, not before 1970)
+          const now = new Date();
+          const minDate = new Date('1970-01-01');
+
+          if (parsedDate <= now && parsedDate >= minDate) {
+            logger.debug(`Valid date parsed: ${parsedDate.toISOString()}`);
+            return parsedDate;
+          } else {
+            logger.warn(`Date out of reasonable range: ${parsedDate.toISOString()}, using fallback`);
+          }
+        }
+      }
+
+      // Fallback to file system metadata
+      logger.info(`Using file system ${type} date as fallback for ${filePath}`);
+      const fileStats = await stat(filePath);
+      const fallbackDate = type === 'created' ? fileStats.birthtime : fileStats.mtime;
+
+      return fallbackDate;
+    } catch (error) {
+      logger.error(`Error sanitizing date for ${filePath}:`, error);
+      // Last resort: use current date
+      return new Date();
+    }
+  }
+
+  /**
+   * Extract file system metadata as fallback
+   */
+  private static async getFileSystemMetadata(
+    filePath: string
+  ): Promise<{ created: Date; modified: Date; size: number }> {
+    const fileStats = await stat(filePath);
+    return {
+      created: fileStats.birthtime,
+      modified: fileStats.mtime,
+      size: fileStats.size,
+    };
+  }
+
   /**
    * Parse document based on file type
    */
@@ -56,6 +127,16 @@ export class DocumentParserService {
     // Detect sections based on headings
     const sections = this.detectSections(lines);
 
+    // Sanitize dates with fallback to file system metadata
+    const createdDate = await this.sanitizeDate(pdfData.info?.CreationDate, filePath, 'created');
+    const modifiedDate = await this.sanitizeDate(pdfData.info?.ModDate, filePath, 'modified');
+
+    // Get file system metadata for additional validation
+    const fsMetadata = await this.getFileSystemMetadata(filePath);
+
+    logger.info(`PDF dates - Created: ${createdDate?.toISOString()}, Modified: ${modifiedDate?.toISOString()}`);
+    logger.info(`File system dates - Created: ${fsMetadata.created.toISOString()}, Modified: ${fsMetadata.modified.toISOString()}`);
+
     // Extract metadata
     const metadata: DocumentMetadata = {
       filename,
@@ -64,9 +145,9 @@ export class DocumentParserService {
       wordCount: text.split(/\s+/).length,
       characterCount: text.length,
       language: DEFAULT_LANGUAGE, // Default to Czech
-      author: pdfData.info?.Author,
-      createdDate: pdfData.info?.CreationDate ? new Date(pdfData.info.CreationDate) : undefined,
-      modifiedDate: pdfData.info?.ModDate ? new Date(pdfData.info.ModDate) : undefined,
+      author: pdfData.info?.Author || 'Unknown',
+      createdDate,
+      modifiedDate,
     };
 
     // Detect tables (basic implementation)
@@ -115,12 +196,17 @@ export class DocumentParserService {
       .replace(/\s+/g, ' ')
       .trim();
 
+    // Get file system metadata for dates
+    const fsMetadata = await this.getFileSystemMetadata(filePath);
+
     const metadata: DocumentMetadata = {
       filename,
       mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       wordCount: plainText.split(/\s+/).length,
       characterCount: plainText.length,
       language: DEFAULT_LANGUAGE,
+      createdDate: fsMetadata.created,
+      modifiedDate: fsMetadata.modified,
     };
 
     // Detect tables

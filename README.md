@@ -28,6 +28,14 @@ A powerful document processing system with AI-powered wizard workflow, supportin
 - 🐳 **Docker Ready**: Easy deployment with Docker Compose
 - 📚 **Swagger/OpenAPI**: Interactive API documentation with live testing
 
+### ✨ New Features
+
+- 🔌 **WebSocket Support**: Real-time updates via Socket.IO for session progress, model results, and clarifications
+- 🚀 **Multi-Model Execution**: Run prompts across multiple AI models in parallel with comparison tools
+- 🌐 **Remote Ollama**: Support for ngrok tunnels and external Ollama instances
+- 📋 **MarkItDown Integration**: Optional Python service for enhanced PDF parsing using Microsoft's MarkItDown
+- 📅 **Enhanced Date Handling**: Intelligent PDF metadata extraction with fallback to file system dates
+
 ## 🏗️ Architecture
 
 ```
@@ -182,7 +190,241 @@ OPENAI_MODEL=gpt-4-turbo-preview
 
 GEMINI_API_KEY=your-key-here
 GEMINI_MODEL=gemini-1.5-pro
+
+# Multi-Model Configuration (optional)
+MULTI_MODEL_CONFIG=ollama:llama3.1:true:,ollama:mistral:true:
+
+# WebSocket
+CORS_ORIGIN=*
 ```
+
+## 🔌 WebSocket Real-Time Updates
+
+The backend now supports real-time updates via WebSocket using Socket.IO.
+
+### Connecting to WebSocket
+
+```javascript
+import io from 'socket.io-client';
+
+const socket = io('http://localhost:3000', {
+  path: '/socket.io/',
+  transports: ['websocket', 'polling']
+});
+
+// Subscribe to a session
+socket.emit('subscribe', sessionId);
+
+// Listen for progress updates
+socket.on('progress', (data) => {
+  console.log('Progress:', data.progress, '%');
+  console.log('Prompts:', data.prompts);
+});
+
+// Listen for model results
+socket.on('model_result', (data) => {
+  console.log('Model:', data.modelName);
+  console.log('Duration:', data.duration, 'ms');
+  console.log('Result:', data.result);
+});
+
+// Listen for clarifications
+socket.on('clarification', (data) => {
+  console.log('Question:', data.question);
+});
+
+// Listen for completion
+socket.on('completed', (data) => {
+  console.log('Session completed!', data.result);
+});
+```
+
+### WebSocket Events
+
+- **subscribe**: Subscribe to session updates
+- **unsubscribe**: Unsubscribe from session updates
+- **progress**: Real-time progress updates (0-100%)
+- **model_result**: Individual model results (multi-model execution)
+- **clarification**: Clarification questions from AI
+- **completed**: Session completion notification
+- **error**: Error notifications
+
+## 🚀 Multi-Model Execution
+
+Execute prompts across multiple AI models in parallel and compare results.
+
+### Configure Multiple Models
+
+```bash
+# .env
+MULTI_MODEL_CONFIG=ollama:llama3.1:true:,ollama:mistral:true:,openai:gpt-4:false:
+```
+
+### Execute with Multiple Models
+
+```bash
+POST /api/wizard/multi-model/execute
+Content-Type: application/json
+
+{
+  "prompt": "Analyze this document and provide key insights",
+  "sessionId": "session-123",
+  "models": [
+    {
+      "provider": "ollama",
+      "model": "llama3.1:8b",
+      "enabled": true
+    },
+    {
+      "provider": "ollama",
+      "model": "mistral:latest",
+      "enabled": true
+    },
+    {
+      "provider": "openai",
+      "model": "gpt-4",
+      "enabled": true
+    }
+  ]
+}
+```
+
+### Response Format
+
+```json
+{
+  "success": true,
+  "data": {
+    "results": [
+      {
+        "modelName": "llama3.1:8b",
+        "provider": "ollama",
+        "duration": 2341,
+        "result": "Analysis from Llama...",
+        "status": "completed",
+        "tokensUsed": 512
+      },
+      {
+        "modelName": "mistral:latest",
+        "provider": "ollama",
+        "duration": 1876,
+        "result": "Analysis from Mistral...",
+        "status": "completed",
+        "tokensUsed": 487
+      }
+    ],
+    "totalDuration": 2341,
+    "successCount": 2,
+    "failureCount": 0,
+    "combinedResult": "# Multi-Model Results\n\n..."
+  }
+}
+```
+
+### Compare Model Results
+
+```bash
+POST /api/wizard/multi-model/compare
+Content-Type: application/json
+
+{
+  "results": [...]  # Results from execute endpoint
+}
+```
+
+Returns:
+- Comparison matrix (markdown table)
+- Fastest model result
+- Consensus result (if models agree)
+
+## 🌐 Remote Ollama with Ngrok
+
+Run Ollama on a different machine or expose via ngrok tunnel.
+
+### Setup Ngrok Tunnel
+
+1. **Start Ollama on your machine**
+```bash
+ollama serve
+```
+
+2. **Create ngrok tunnel**
+```bash
+ngrok http 11434
+```
+
+3. **Configure backend**
+```bash
+# .env
+OLLAMA_REMOTE_URL=https://abc123.ngrok.io
+```
+
+### Use External IP
+
+If Ollama is on another machine in your network:
+
+```bash
+# .env
+OLLAMA_REMOTE_URL=http://192.168.1.100:11434
+```
+
+### Multi-Model with Remote Ollama
+
+```json
+{
+  "models": [
+    {
+      "provider": "ollama",
+      "model": "llama3.1:8b",
+      "baseUrl": "http://localhost:11434"
+    },
+    {
+      "provider": "ollama-remote",
+      "model": "mistral:latest",
+      "baseUrl": "https://abc123.ngrok.io"
+    }
+  ]
+}
+```
+
+## 📋 MarkItDown PDF Parser (Optional)
+
+Enhanced PDF parsing using Microsoft's MarkItDown library.
+
+### Setup
+
+1. **Navigate to MarkItDown parser directory**
+```bash
+cd markitdown-parser
+```
+
+2. **Build and run with Docker**
+```bash
+docker-compose up -d
+```
+
+Or run locally:
+```bash
+pip install -r requirements.txt
+python app.py
+```
+
+3. **Configure backend**
+```bash
+# .env
+MARKITDOWN_URL=http://localhost:5000
+```
+
+### Features
+
+- Better table detection and extraction
+- Image extraction from PDFs
+- OCR support for scanned documents
+- PowerPoint and HTML parsing
+- Enhanced metadata extraction
+- Intelligent date handling
+
+See `markitdown-parser/README.md` for complete documentation.
 
 ## 📚 API Documentation
 

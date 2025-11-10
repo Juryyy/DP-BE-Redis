@@ -10,6 +10,7 @@ export interface LLMConfig {
   temperature?: number;
   maxTokens?: number;
   topP?: number;
+  baseUrl?: string; // For remote Ollama or custom endpoints
 }
 
 export interface ChatMessage {

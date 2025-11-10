@@ -13,6 +13,7 @@ import {
   ResultController,
   SessionController,
 } from '../controllers';
+import { MultiModelController } from '../controllers/multi-model.controller';
 import {
   validateSession,
   validateFileUpload,
@@ -135,5 +136,31 @@ router.get('/conversation/:sessionId', asyncHandler(SessionController.getConvers
  * GET /api/wizard/session/:sessionId
  */
 router.get('/session/:sessionId', asyncHandler(SessionController.getSession));
+
+// ==================== MULTI-MODEL EXECUTION ====================
+
+/**
+ * Execute prompt with multiple models
+ * POST /api/wizard/multi-model/execute
+ */
+router.post('/multi-model/execute', asyncHandler(MultiModelController.execute));
+
+/**
+ * Compare model results
+ * POST /api/wizard/multi-model/compare
+ */
+router.post('/multi-model/compare', asyncHandler(MultiModelController.compare));
+
+/**
+ * Get multi-model configuration
+ * GET /api/wizard/multi-model/config
+ */
+router.get('/multi-model/config', asyncHandler(MultiModelController.getConfig));
+
+/**
+ * Update multi-model configuration
+ * POST /api/wizard/multi-model/config
+ */
+router.post('/multi-model/config', asyncHandler(MultiModelController.updateConfig));
 
 export default router;

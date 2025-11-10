@@ -163,14 +163,14 @@ export class LLMService {
 
       case 'ollama':
         return new Ollama({
-          baseUrl: process.env.OLLAMA_BASE_URL || DEFAULT_PROVIDER_URLS.ollama,
+          baseUrl: this.config.baseUrl || process.env.OLLAMA_BASE_URL || DEFAULT_PROVIDER_URLS.ollama,
           model: model || DEFAULT_MODELS.ollama, // Model should be pre-selected
           temperature: temperature,
         }) as any as BaseLanguageModel;
 
       case 'ollama-remote':
         return new Ollama({
-          baseUrl: process.env.OLLAMA_REMOTE_URL || process.env.OLLAMA_BASE_URL,
+          baseUrl: this.config.baseUrl || process.env.OLLAMA_REMOTE_URL || process.env.OLLAMA_BASE_URL,
           model: model || DEFAULT_MODELS['ollama-remote'], // Model should be pre-selected
           temperature: temperature,
         }) as any as BaseLanguageModel;
@@ -540,15 +540,20 @@ export class LLMService {
 
 /**
  * Factory function to create LLM service with default config
- * @deprecated Use LLMService.create() instead for better model detection
+ * Supports provider, model, and baseUrl overrides for multi-model execution
  */
-export async function createLLMService(overrides?: Partial<LLMConfig>): Promise<LLMService> {
+export async function createLLMService(
+  provider?: AIProvider,
+  model?: string,
+  baseUrl?: string
+): Promise<LLMService> {
   const defaultConfig: LLMConfig = {
-    provider: (process.env.DEFAULT_AI_PROVIDER as AIProvider) || 'ollama',
-    model: undefined, // Will be auto-detected for Ollama
+    provider: provider || (process.env.DEFAULT_AI_PROVIDER as AIProvider) || 'ollama',
+    model: model, // Will be auto-detected for Ollama if not provided
     temperature: 0.7,
     maxTokens: parseInt(process.env.MAX_TOKENS_PER_REQUEST || '4096'),
+    baseUrl,
   };
 
-  return LLMService.create({ ...defaultConfig, ...overrides });
+  return LLMService.create(defaultConfig);
 }

@@ -11,6 +11,9 @@ info:
     - Conversation persistence with clarifications
     - Version control and document modification
     - Czech language support
+    - **NEW:** WebSocket real-time updates via Socket.IO
+    - **NEW:** Multi-model parallel execution with comparison
+    - **NEW:** Remote Ollama support (ngrok/external IP)
 
     ## Workflow
     1. **Upload Files** - Upload documents and get session ID
@@ -20,7 +23,14 @@ info:
     5. **Review Result** - Get processed document
     6. **Confirm/Modify** - Approve or request changes
 
-  version: 1.0.0
+    ## WebSocket Support
+    Connect to `ws://localhost:3000/socket.io/` for real-time updates:
+    - Progress updates (0-100%)
+    - Model results (with duration and status)
+    - Clarification requests
+    - Session completion notifications
+
+  version: 2.0.0
   contact:
     name: API Support
   license:
@@ -35,6 +45,8 @@ servers:
 tags:
   - name: Wizard Flow
     description: Main wizard workflow endpoints
+  - name: Multi-Model
+    description: Multi-model execution and comparison endpoints
   - name: Status & Info
     description: Status and information endpoints
   - name: Admin
@@ -624,6 +636,216 @@ paths:
                   message:
                     type: string
                     example: Model removed from database
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /wizard/multi-model/execute:
+    post:
+      tags:
+        - Multi-Model
+      summary: Execute Prompt with Multiple Models
+      description: |
+        Execute a prompt across multiple AI models in parallel.
+        Returns results from all models with timing and status information.
+      operationId: executeMultiModel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - prompt
+              properties:
+                prompt:
+                  type: string
+                  description: The prompt to execute
+                  example: Analyze this document and provide key insights
+                systemPrompt:
+                  type: string
+                  description: Optional system prompt (defaults to Czech system prompt)
+                sessionId:
+                  type: string
+                  format: uuid
+                  description: Optional session ID for WebSocket broadcasting
+                models:
+                  type: array
+                  description: Array of model configurations (if omitted, uses MULTI_MODEL_CONFIG from env)
+                  items:
+                    type: object
+                    required:
+                      - provider
+                    properties:
+                      provider:
+                        type: string
+                        enum: [ollama, ollama-remote, openai, gemini]
+                      model:
+                        type: string
+                        example: llama3.1:8b
+                      enabled:
+                        type: boolean
+                        default: true
+                      baseUrl:
+                        type: string
+                        description: Custom base URL for remote Ollama instances
+                        example: https://abc123.ngrok.io
+            example:
+              prompt: Analyze this document and provide key insights
+              sessionId: 550e8400-e29b-41d4-a716-446655440000
+              models:
+                - provider: ollama
+                  model: llama3.1:8b
+                  enabled: true
+                - provider: ollama
+                  model: mistral:latest
+                  enabled: true
+      responses:
+        '200':
+          description: Multi-model execution results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            modelName:
+                              type: string
+                              example: llama3.1:8b
+                            provider:
+                              type: string
+                              example: ollama
+                            duration:
+                              type: integer
+                              description: Execution time in milliseconds
+                              example: 2341
+                            result:
+                              type: string
+                              description: Model response
+                            status:
+                              type: string
+                              enum: [completed, failed]
+                            tokensUsed:
+                              type: integer
+                              example: 512
+                      totalDuration:
+                        type: integer
+                        description: Total execution time in milliseconds
+                        example: 2341
+                      successCount:
+                        type: integer
+                        example: 2
+                      failureCount:
+                        type: integer
+                        example: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /wizard/multi-model/compare:
+    post:
+      tags:
+        - Multi-Model
+      summary: Compare Multi-Model Results
+      description: Generate comparison matrix and find fastest result
+      operationId: compareMultiModel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - results
+              properties:
+                results:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: Comparison results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      comparisonMatrix:
+                        type: string
+                      fastestResult:
+                        type: object
+                        nullable: true
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /wizard/multi-model/config:
+    get:
+      tags:
+        - Multi-Model
+      summary: Get Multi-Model Configuration
+      operationId: getMultiModelConfig
+      responses:
+        '200':
+          description: Current configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      models:
+                        type: array
+                        items:
+                          type: object
+                      enabledCount:
+                        type: integer
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags:
+        - Multi-Model
+      summary: Update Multi-Model Configuration
+      operationId: updateMultiModelConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - models
+              properties:
+                models:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: Configuration updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/InternalError'
 
