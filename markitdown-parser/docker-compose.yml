@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  markitdown-parser:
+    build: .
+    container_name: markitdown-parser
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MAX_FILE_SIZE=52428800  # 50MB
+      - UPLOAD_FOLDER=/tmp/uploads
+      - LOG_LEVEL=INFO
+    volumes:
+      - uploads:/tmp/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - backend
+
+volumes:
+  uploads:
+    driver: local
+
+networks:
+  backend:
+    driver: bridge

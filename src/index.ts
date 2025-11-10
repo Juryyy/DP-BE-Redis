@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
 import { logger } from './utils/logger';
 import { closeRedisConnections } from './config/redis';
 import { closeDatabaseConnection } from './config/database';
@@ -11,6 +12,7 @@ import { setupSwagger } from './config/swagger';
 import wizardRoutes from './routes/wizard.routes';
 import adminRoutes from './routes/admin.routes';
 import { SessionService } from './services/session.service';
+import { websocketService } from './services/websocket.service';
 
 // Load environment variables
 dotenv.config();
@@ -81,12 +83,17 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
+// Create HTTP server and initialize WebSocket
+const httpServer = createServer(app);
+websocketService.initialize(httpServer);
+
 // Start server
-const server = app.listen(PORT, () => {
+const server = httpServer.listen(PORT, () => {
   logger.info(`🚀 Server running on port ${PORT}`);
   logger.info(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`🤖 Default AI Provider: ${process.env.DEFAULT_AI_PROVIDER || 'ollama'}`);
   logger.info(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
+  logger.info(`🔌 WebSocket server ready at ws://localhost:${PORT}/socket.io/`);
 });
 
 // Graceful shutdown
@@ -97,6 +104,7 @@ const gracefulShutdown = async (signal: string) => {
     logger.info('HTTP server closed');
 
     try {
+      await websocketService.shutdown();
       await closeRedisConnections();
       await closeDatabaseConnection();
       logger.info('All connections closed');
