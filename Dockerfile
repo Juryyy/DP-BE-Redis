@@ -10,10 +10,11 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+COPY .npmrc ./
 COPY tsconfig.json ./
 COPY prisma ./prisma/
 
-# Install dependencies
+# Install dependencies (including devDependencies for building)
 RUN npm install
 
 # Copy source code
