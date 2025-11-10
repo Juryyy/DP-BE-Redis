@@ -1,6 +1,6 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
-import { logger } from '../config/logger';
+import { logger } from '../utils/logger';
 import { redisSubClient } from '../config/redis';
 
 export interface SessionProgressUpdate {
@@ -126,8 +126,8 @@ class WebSocketService {
       const parts = channel.split(':');
       if (parts.length < 2) return;
 
-      const sessionId = parts[1];
-      const eventType = parts[2] || 'update';
+      const sessionId = parts[1] as string;
+      const eventType = (parts[2] as string) || 'update';
 
       // Emit to all clients subscribed to this session
       this.emitToSession(sessionId, eventType, data);
