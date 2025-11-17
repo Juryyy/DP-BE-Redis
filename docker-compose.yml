@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: dppassword
       POSTGRES_DB: document_processor
     ports:
-      - "5432:5432"
+      - "5436:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -66,7 +66,7 @@ services:
       DEFAULT_AI_PROVIDER: ollama
 
       # MarkItDown Parser Service
-      MARKITDOWN_URL: http://markitdown-parser:5000
+      MARKITDOWN_URL: http://markitdown-parser:8071
 
       # Session
       SESSION_EXPIRE_SECONDS: 3600
@@ -104,16 +104,22 @@ services:
       dockerfile: Dockerfile
     container_name: dp-markitdown-parser
     environment:
-      PORT: 5000
+      PORT: 8071
       MAX_FILE_SIZE: 52428800
       UPLOAD_FOLDER: /tmp/uploads
       LOG_LEVEL: INFO
     ports:
-      - "5000:5000"
+      - "8071:8071"
     volumes:
       - markitdown_uploads:/tmp/uploads
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:8071/health')",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3

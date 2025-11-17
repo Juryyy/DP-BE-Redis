@@ -108,8 +108,8 @@ class WebSocketService {
       await redisSubClient.psubscribe('session:*');
 
       // Listen for messages on subscribed patterns
-      redisSubClient.on('pmessage', (pattern: string, channel: string, message: string) => {
-        this.handleRedisMessage(channel, message);
+      redisSubClient.on('pmessage', (_pattern, channel, message) => {
+        this.handleRedisMessage(channel as string, message as string);
       });
 
       logger.info('Redis pub/sub subscriptions established');
