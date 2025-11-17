@@ -1,0 +1,48 @@
+{
+  "testId": "MULTI-01",
+  "testName": "Invoice Extraction - Model Comparison",
+  "description": "Compare multiple models extracting structured data from Czech invoice",
+  "sampleFile": "../samples/invoice-czech.pdf",
+  "prompt": "Extrahuj z faktury všechny klíčové informace a vrať je ve strukturovaném JSON formátu. Zahrň: číslo faktury, informace o dodavateli a odběrateli, jednotlivé položky s cenami, daňové informace a bankovní údaje.",
+  "systemPrompt": "Jsi profesionální asistent pro zpracování dokumentů. Vždy odpovídej v češtině a vrať data ve validním JSON formátu.",
+  "models": [
+    {
+      "provider": "openai",
+      "model": "gpt-4-turbo-preview",
+      "temperature": 0.1,
+      "maxTokens": 2000,
+      "enabled": true
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-3-5-sonnet-20241022",
+      "temperature": 0.1,
+      "maxTokens": 2000,
+      "enabled": true
+    },
+    {
+      "provider": "gemini",
+      "model": "gemini-1.5-pro",
+      "temperature": 0.1,
+      "maxTokens": 2000,
+      "enabled": true
+    },
+    {
+      "provider": "ollama",
+      "model": "llama3.1:8b",
+      "temperature": 0.1,
+      "maxTokens": 2000,
+      "enabled": true
+    }
+  ],
+  "comparisonCriteria": {
+    "accuracy": "Správnost extrahovaných dat",
+    "completeness": "Úplnost informací",
+    "formatting": "Kvalita JSON formátování",
+    "responseTime": "Doba odezvy"
+  },
+  "expectedConsensus": {
+    "cisloFaktury": "2024-001234",
+    "celkovaKUhrade": "330330"
+  }
+}

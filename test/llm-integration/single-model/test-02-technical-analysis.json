@@ -1,0 +1,40 @@
+{
+  "testId": "SINGLE-02",
+  "testName": "Technical Report Analysis",
+  "description": "Analyze technical report and identify key issues and recommendations",
+  "sampleFile": "../samples/technical-report.xlsx",
+  "provider": "anthropic",
+  "model": "claude-3-5-sonnet-20241022",
+  "temperature": 0.3,
+  "maxTokens": 3000,
+  "prompts": [
+    {
+      "content": "Analyzuj technickou zprávu a odpověz na tyto otázky: 1) Jaké jsou hlavní kritické problémy identifikované v systému? 2) Jaká je doporučená priorita řešení? 3) Splňuje systém výkonnostní požadavky? 4) Co je největší riziko pro produkční nasazení? Odpověz strukturovaně v češtině.",
+      "priority": 1,
+      "targetType": "FULL_DOCUMENT"
+    }
+  ],
+  "expectedOutput": {
+    "type": "text",
+    "requiredTopics": [
+      "memory leak",
+      "deadlock",
+      "výkonnostní požadavky",
+      "doporučení"
+    ]
+  },
+  "alternativeProviders": [
+    {
+      "provider": "openai",
+      "model": "gpt-4-turbo-preview"
+    },
+    {
+      "provider": "gemini",
+      "model": "gemini-1.5-pro"
+    },
+    {
+      "provider": "ollama-remote",
+      "model": "llama3.1:8b"
+    }
+  ]
+}

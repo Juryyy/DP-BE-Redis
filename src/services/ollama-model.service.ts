@@ -131,7 +131,7 @@ export class OllamaModelService {
   /**
    * Pull/download a model from Ollama
    */
-  static async pullModel(modelName: string, baseUrl?: string): Promise<void> {
+  static async pullModel(modelName: string, baseUrl?: string, headers?: Record<string, string>): Promise<void> {
     const url = baseUrl || process.env.OLLAMA_BASE_URL || DEFAULT_PROVIDER_URLS.ollama;
 
     try {
@@ -144,6 +144,7 @@ export class OllamaModelService {
         {
           timeout: 600000, // 10 minutes for large models
           responseType: 'stream',
+          headers: headers || {},
         }
       );
 
@@ -205,7 +206,8 @@ export class OllamaModelService {
    */
   static async testModel(
     modelName: string,
-    baseUrl?: string
+    baseUrl?: string,
+    headers?: Record<string, string>
   ): Promise<{
     success: boolean;
     response?: string;
@@ -223,7 +225,7 @@ export class OllamaModelService {
           prompt: 'Řekni "Funguje to!" česky.',
           stream: false,
         },
-        { timeout: 30000 }
+        { timeout: 30000, headers: headers || {} }
       );
 
       if (response.data && response.data.response) {

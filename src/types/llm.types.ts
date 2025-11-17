@@ -2,7 +2,7 @@
  * LLM and AI provider types
  */
 
-export type AIProvider = 'ollama' | 'ollama-remote' | 'openai' | 'gemini';
+export type AIProvider = 'ollama' | 'ollama-remote' | 'openai' | 'gemini' | 'anthropic';
 
 export interface LLMConfig {
   provider: AIProvider;

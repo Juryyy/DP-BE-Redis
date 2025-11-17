@@ -1,0 +1,43 @@
+{
+  "testId": "SINGLE-01",
+  "testName": "Invoice Data Extraction",
+  "description": "Extract structured data from Czech invoice document",
+  "sampleFile": "../samples/invoice-czech.pdf",
+  "provider": "openai",
+  "model": "gpt-4-turbo-preview",
+  "temperature": 0.1,
+  "maxTokens": 2000,
+  "prompts": [
+    {
+      "content": "Extrahuj z faktury následující informace ve formátu JSON: číslo faktury, dodavatel (název, IČO, DIČ), odběratel (název, IČO, DIČ), datum vystavení, datum splatnosti, položky (název, množství, jednotková cena, celková cena), mezisoučet, DPH, celková částka k úhradě, bankovní údaje (banka, číslo účtu, IBAN).",
+      "priority": 1,
+      "targetType": "FULL_DOCUMENT"
+    }
+  ],
+  "expectedOutput": {
+    "type": "json",
+    "requiredFields": [
+      "cisloFaktury",
+      "dodavatel",
+      "odberatel",
+      "datumVystaveni",
+      "datumSplatnosti",
+      "polozky",
+      "celkovaKUhrade"
+    ]
+  },
+  "alternativeProviders": [
+    {
+      "provider": "gemini",
+      "model": "gemini-1.5-pro"
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-3-5-sonnet-20241022"
+    },
+    {
+      "provider": "ollama",
+      "model": "llama3.1:8b"
+    }
+  ]
+}

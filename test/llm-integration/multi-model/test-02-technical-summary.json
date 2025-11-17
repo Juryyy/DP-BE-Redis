@@ -1,0 +1,50 @@
+{
+  "testId": "MULTI-02",
+  "testName": "Technical Report Summary - Model Comparison",
+  "description": "Compare models summarizing technical report and identifying priorities",
+  "sampleFile": "../samples/technical-report.xlsx",
+  "prompt": "Shrň technickou zprávu do 5 klíčových bodů. Pro každý bod uveď: problém/zjištění, závažnost (kritické/vysoké/střední/nízké), doporučené řešení. Odpověz strukturovaně.",
+  "systemPrompt": "Jsi senior software architekt s expertízou v oblasti výkonu systémů. Analyzuj technické zprávy a poskytuj přesné a užitečné shrnutí.",
+  "models": [
+    {
+      "provider": "openai",
+      "model": "gpt-4-turbo-preview",
+      "temperature": 0.3,
+      "maxTokens": 3000,
+      "enabled": true
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-3-5-sonnet-20241022",
+      "temperature": 0.3,
+      "maxTokens": 3000,
+      "enabled": true
+    },
+    {
+      "provider": "gemini",
+      "model": "gemini-1.5-pro",
+      "temperature": 0.3,
+      "maxTokens": 3000,
+      "enabled": true
+    },
+    {
+      "provider": "ollama-remote",
+      "model": "llama3.1:8b",
+      "temperature": 0.3,
+      "maxTokens": 3000,
+      "enabled": true
+    }
+  ],
+  "comparisonCriteria": {
+    "technicalAccuracy": "Technická přesnost analýzy",
+    "prioritization": "Správnost prioritizace problémů",
+    "actionability": "Praktická použitelnost doporučení",
+    "conciseness": "Stručnost a srozumitelnost"
+  },
+  "expectedKeyFindings": [
+    "memory leak",
+    "deadlock",
+    "cache miss rate",
+    "PostgreSQL indexy"
+  ]
+}

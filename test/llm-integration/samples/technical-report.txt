@@ -1,0 +1,72 @@
+TECHNICKÁ ZPRÁVA - ANALÝZA VÝKONU SYSTÉMU
+
+Projekt: E-commerce platforma v2.0
+Datum analýzy: 10.11.2024
+Autor: Jan Novák, Senior Software Architect
+
+1. ÚVOD
+Tato zpráva shrnuje výsledky výkonnostního testování nové verze e-commerce platformy. Testování probíhalo v období od 1.11.2024 do 10.11.2024.
+
+2. TESTOVANÉ KOMPONENTY
+- API Gateway (Node.js 20)
+- Databázový server (PostgreSQL 16)
+- Cache vrstva (Redis 7.2)
+- Frontend (React 18.2)
+- Search engine (Elasticsearch 8.11)
+
+3. VÝSLEDKY MĚŘENÍ
+
+3.1 Doba odezvy API
+- GET /products: průměr 45ms, 95. percentil 120ms
+- POST /orders: průměr 180ms, 95. percentil 450ms
+- GET /search: průměr 85ms, 95. percentil 250ms
+
+3.2 Propustnost systému
+- Maximální počet souběžných uživatelů: 15 000
+- Průměrný počet requestů za sekundu: 3 200 req/s
+- Špičková zátěž: 8 500 req/s
+
+3.3 Využití zdrojů
+- CPU: průměrně 65%, špičkově 85%
+- RAM: průměrně 12GB z 32GB
+- Disk I/O: 150 MB/s write, 450 MB/s read
+- Síťová propustnost: 2.1 Gbps
+
+4. IDENTIFIKOVANÉ PROBLÉMY
+
+4.1 Kritické
+- Memory leak v order processing service (únik 50MB/hod)
+- Deadlock při konkurentním přístupu k inventory
+
+4.2 Závažné
+- Pomalé dotazy na produktový katalog (>500ms při více než 10K produktech)
+- Redis cache miss rate 23% (očekáváno <10%)
+
+4.3 Mírné
+- Neoptimální indexy v PostgreSQL
+- Zbytečné API volání při načítání produktů
+
+5. DOPORUČENÍ
+
+5.1 Okamžitá řešení (do 1 týdne)
+- Opravit memory leak v order service
+- Implementovat optimistic locking pro inventory
+- Přidat chybějící databázové indexy
+
+5.2 Krátkodobá řešení (do 1 měsíce)
+- Refaktorovat cache strategii
+- Optimalizovat Elasticsearch queries
+- Implementovat connection pooling
+
+5.3 Dlouhodobá řešení (do 3 měsíců)
+- Přechod na microservices architekturu
+- Implementace CQRS patternu
+- Horizontální škálování databáze
+
+6. ZÁVĚR
+Systém splňuje základní výkonnostní požadavky, ale pro produkční nasazení je nutné vyřešit kritické problémy, zejména memory leak a deadlock. Po implementaci doporučených optimalizací očekáváme 40% zlepšení výkonu.
+
+Přílohy:
+- Grafy výkonu (performance_graphs.pdf)
+- Logy z testování (test_logs.zip)
+- Konfigurační soubory (configs.tar.gz)
