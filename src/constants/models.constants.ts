@@ -13,6 +13,7 @@ export const DEFAULT_MODEL_CONFIG = {
 export const DEFAULT_MODELS = {
   openai: 'gpt-4-turbo-preview',
   gemini: 'gemini-1.5-pro',
+  anthropic: 'claude-3-5-sonnet-20241022',
   ollama: 'llama3.1:8b',
   'ollama-remote': 'llama3.1:8b',
 } as const;

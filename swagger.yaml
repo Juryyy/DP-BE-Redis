@@ -7,7 +7,7 @@ info:
     ## Features
     - Multi-format document upload (PDF, DOCX, XLSX)
     - Priority-based prompt processing
-    - Multiple AI providers (Ollama, OpenAI, Gemini)
+    - Multiple AI providers (Ollama, OpenAI, Gemini, Anthropic Claude)
     - Conversation persistence with clarifications
     - Version control and document modification
     - Czech language support
@@ -678,7 +678,7 @@ paths:
                     properties:
                       provider:
                         type: string
-                        enum: [ollama, ollama-remote, openai, gemini]
+                        enum: [ollama, ollama-remote, openai, gemini, anthropic]
                       model:
                         type: string
                         example: llama3.1:8b

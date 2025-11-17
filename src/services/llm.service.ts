@@ -1,5 +1,6 @@
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { ChatAnthropic } from '@langchain/anthropic';
 import { Ollama } from '@langchain/ollama';
 import { BaseLanguageModel } from '@langchain/core/language_models/base';
 import { HumanMessage, SystemMessage, AIMessage, BaseMessage } from '@langchain/core/messages';
@@ -159,6 +160,14 @@ export class LLMService {
           temperature: temperature,
           maxOutputTokens: maxTokens,
           apiKey: process.env.GEMINI_API_KEY,
+        }) as any as BaseLanguageModel;
+
+      case 'anthropic':
+        return new ChatAnthropic({
+          model: model || process.env.ANTHROPIC_MODEL || DEFAULT_MODELS.anthropic,
+          temperature: temperature,
+          maxTokens: maxTokens,
+          anthropicApiKey: process.env.ANTHROPIC_API_KEY,
         }) as any as BaseLanguageModel;
 
       case 'ollama':
@@ -464,6 +473,8 @@ export class LLMService {
         return ['gpt-4-turbo-preview', 'gpt-4', 'gpt-3.5-turbo'];
       case 'gemini':
         return ['gemini-1.5-pro', 'gemini-1.0-pro'];
+      case 'anthropic':
+        return ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'];
       default:
         return [];
     }
