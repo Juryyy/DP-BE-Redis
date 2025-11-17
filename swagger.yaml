@@ -382,18 +382,9 @@ paths:
     post:
       tags:
         - Admin
-      summary: Sync Models from Ollama
-      description: Query Ollama instance (local or remote) and sync available models to database
+      summary: Sync Models from Local Ollama
+      description: Query local Ollama instance and sync available models to database
       operationId: syncModels
-      parameters:
-        - name: source
-          in: query
-          description: Ollama instance source (local or remote)
-          required: false
-          schema:
-            type: string
-            enum: [local, remote]
-            default: local
       responses:
         '200':
           description: Models synced successfully
@@ -516,18 +507,9 @@ paths:
     post:
       tags:
         - Admin
-      summary: Pull Model from Ollama
-      description: Download a new model from Ollama registry (runs in background). Can target local or remote Ollama instance.
+      summary: Pull Model from Local Ollama
+      description: Download a new model from local Ollama registry (runs in background)
       operationId: pullModel
-      parameters:
-        - name: source
-          in: query
-          description: Ollama instance source (local or remote)
-          required: false
-          schema:
-            type: string
-            enum: [local, remote]
-            default: local
       requestBody:
         required: true
         content:
@@ -579,18 +561,9 @@ paths:
     post:
       tags:
         - Admin
-      summary: Test Model Functionality
-      description: Test if a specific model is working correctly on local or remote Ollama
+      summary: Test Model on Local Ollama
+      description: Test if a specific model is working correctly on local Ollama
       operationId: testModel
-      parameters:
-        - name: source
-          in: query
-          description: Ollama instance source (local or remote)
-          required: false
-          schema:
-            type: string
-            enum: [local, remote]
-            default: local
       requestBody:
         required: true
         content:
@@ -661,25 +634,16 @@ paths:
                       baseUrl:
                         type: string
 
-  /admin/models/remote:
+  /admin/models/available:
     get:
       tags:
         - Admin
-      summary: List Models from Ollama API
-      description: List models directly from Ollama API without database sync. Useful for checking what's available on local or remote instance.
-      operationId: listRemoteModels
-      parameters:
-        - name: source
-          in: query
-          description: Ollama instance source (local or remote)
-          required: false
-          schema:
-            type: string
-            enum: [local, remote]
-            default: local
+      summary: List Models from Local Ollama API
+      description: List models directly from local Ollama API without database sync
+      operationId: listAvailableModels
       responses:
         '200':
-          description: Models retrieved from Ollama API
+          description: Models retrieved from local Ollama API
           content:
             application/json:
               schema:
@@ -693,10 +657,10 @@ paths:
                     properties:
                       source:
                         type: string
-                        example: remote
+                        example: local
                       baseUrl:
                         type: string
-                        example: https://abc123.ngrok.io
+                        example: http://localhost:11434
                       totalModels:
                         type: integer
                         example: 5
@@ -830,21 +794,12 @@ paths:
     get:
       tags:
         - Admin
-      summary: Check Ollama Service Health
-      description: Check if local or remote Ollama service is available and responding
+      summary: Check Local Ollama Service Health
+      description: Check if local Ollama service is available and responding
       operationId: checkOllamaHealth
-      parameters:
-        - name: source
-          in: query
-          description: Ollama instance source (local or remote)
-          required: false
-          schema:
-            type: string
-            enum: [local, remote]
-            default: local
       responses:
         '200':
-          description: Ollama service is healthy
+          description: Local Ollama service is healthy
           content:
             application/json:
               schema:
@@ -858,10 +813,10 @@ paths:
                     properties:
                       source:
                         type: string
-                        example: remote
+                        example: local
                       baseUrl:
                         type: string
-                        example: https://abc123.ngrok.io
+                        example: http://localhost:11434
                       status:
                         type: string
                         example: healthy
@@ -892,7 +847,7 @@ paths:
                     properties:
                       source:
                         type: string
-                        example: remote
+                        example: local
                       status:
                         type: string
                         example: unhealthy
@@ -901,18 +856,9 @@ paths:
     get:
       tags:
         - Admin
-      summary: Get Ollama Service Information
-      description: Get detailed information about local or remote Ollama service including version and models
+      summary: Get Local Ollama Service Information
+      description: Get detailed information about local Ollama service including version and models
       operationId: getOllamaInfo
-      parameters:
-        - name: source
-          in: query
-          description: Ollama instance source (local or remote)
-          required: false
-          schema:
-            type: string
-            enum: [local, remote]
-            default: local
       responses:
         '200':
           description: Ollama service information retrieved
@@ -933,6 +879,293 @@ paths:
                       baseUrl:
                         type: string
                         example: http://localhost:11434
+                      version:
+                        type: string
+                        example: 0.1.32
+                      totalModels:
+                        type: integer
+                        example: 3
+                      totalSize:
+                        type: integer
+                        example: 15000000000
+                        description: Total size of all models in bytes
+                      models:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              example: llama3.1:8b
+                            size:
+                              type: integer
+                              example: 4661224480
+                            family:
+                              type: string
+                              example: llama
+                            parameterSize:
+                              type: string
+                              example: 8B
+                            quantization:
+                              type: string
+                              example: Q4_0
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /admin/ollama/remote/models:
+    get:
+      tags:
+        - Admin
+      summary: List Models from Remote Ollama
+      description: List models directly from remote Ollama API (configured via OLLAMA_REMOTE_URL)
+      operationId: listRemoteModels
+      responses:
+        '200':
+          description: Models retrieved from remote Ollama API
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      source:
+                        type: string
+                        example: remote
+                      baseUrl:
+                        type: string
+                        example: https://abc123.ngrok.io
+                      totalModels:
+                        type: integer
+                        example: 5
+                      models:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              example: llama3.1:8b
+                            size:
+                              type: integer
+                              example: 4661224480
+                            digest:
+                              type: string
+                              example: sha256:abc123
+                            modifiedAt:
+                              type: string
+                              format: date-time
+                            details:
+                              type: object
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /admin/ollama/remote/pull:
+    post:
+      tags:
+        - Admin
+      summary: Pull Model on Remote Ollama
+      description: Download a new model on remote Ollama instance (runs in background)
+      operationId: pullRemoteModel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - modelName
+              properties:
+                modelName:
+                  type: string
+                  example: llama3:8b
+                  description: Name of the model to pull
+      responses:
+        '200':
+          description: Model pull initiated on remote
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Started pulling model llama3:8b on remote Ollama
+                  data:
+                    type: object
+                    properties:
+                      modelName:
+                        type: string
+                        example: llama3:8b
+                      source:
+                        type: string
+                        example: remote
+                      baseUrl:
+                        type: string
+                        example: https://abc123.ngrok.io
+                      status:
+                        type: string
+                        example: pulling
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /admin/ollama/remote/test:
+    post:
+      tags:
+        - Admin
+      summary: Test Model on Remote Ollama
+      description: Test if a specific model is working correctly on remote Ollama
+      operationId: testRemoteModel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - modelName
+              properties:
+                modelName:
+                  type: string
+                  example: llama3.1:8b
+                  description: Name of the model to test
+      responses:
+        '200':
+          description: Model test successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Model llama3.1:8b is working correctly on remote Ollama
+                  data:
+                    type: object
+                    properties:
+                      modelName:
+                        type: string
+                        example: llama3.1:8b
+                      source:
+                        type: string
+                        example: remote
+                      baseUrl:
+                        type: string
+                        example: https://abc123.ngrok.io
+                      testResponse:
+                        type: string
+                        example: Funguje to!
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          description: Model test failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: Model Test Failed
+                  message:
+                    type: string
+                    example: Model did not respond
+
+  /admin/ollama/remote/health:
+    get:
+      tags:
+        - Admin
+      summary: Check Remote Ollama Service Health
+      description: Check if remote Ollama service is available and responding
+      operationId: checkRemoteOllamaHealth
+      responses:
+        '200':
+          description: Remote Ollama service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      source:
+                        type: string
+                        example: remote
+                      baseUrl:
+                        type: string
+                        example: https://abc123.ngrok.io
+                      status:
+                        type: string
+                        example: healthy
+                      responseTimeMs:
+                        type: integer
+                        example: 125
+                      modelCount:
+                        type: integer
+                        example: 5
+        '503':
+          description: Remote Ollama service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: Remote Ollama Service Unavailable
+                  message:
+                    type: string
+                    example: Connection refused
+
+  /admin/ollama/remote/info:
+    get:
+      tags:
+        - Admin
+      summary: Get Remote Ollama Service Information
+      description: Get detailed information about remote Ollama service including version and models
+      operationId: getRemoteOllamaInfo
+      responses:
+        '200':
+          description: Remote Ollama service information retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      source:
+                        type: string
+                        example: remote
+                      baseUrl:
+                        type: string
+                        example: https://abc123.ngrok.io
                       version:
                         type: string
                         example: 0.1.32

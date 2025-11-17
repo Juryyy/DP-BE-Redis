@@ -11,28 +11,32 @@ import axios from 'axios';
 
 export class AdminController {
   /**
-   * Get base URL for Ollama based on source parameter
+   * Get local Ollama base URL
    */
-  private static getOllamaBaseUrl(source?: string): string {
-    if (source === 'remote') {
-      const remoteUrl = process.env.OLLAMA_REMOTE_URL;
-      if (!remoteUrl) {
-        throw new Error('OLLAMA_REMOTE_URL not configured');
-      }
-      return remoteUrl;
-    }
+  private static getLocalOllamaUrl(): string {
     return process.env.OLLAMA_BASE_URL || DEFAULT_PROVIDER_URLS.ollama;
   }
 
   /**
-   * Sync models from Ollama to database
+   * Get remote Ollama base URL
+   */
+  private static getRemoteOllamaUrl(): string {
+    const remoteUrl = process.env.OLLAMA_REMOTE_URL;
+    if (!remoteUrl) {
+      throw new Error('OLLAMA_REMOTE_URL not configured');
+    }
+    return remoteUrl;
+  }
+
+  // ==================== LOCAL OLLAMA ENDPOINTS ====================
+
+  /**
+   * Sync models from local Ollama to database
    * POST /api/admin/models/sync
-   * Query params: source=local|remote (default: local)
    */
   static async syncModels(req: Request, res: Response): Promise<void> {
     try {
-      const source = (req.query.source as string) || 'local';
-      const baseUrl = AdminController.getOllamaBaseUrl(source);
+      const baseUrl = AdminController.getLocalOllamaUrl();
 
       await OllamaModelService.syncModelsFromOllama(baseUrl);
 
@@ -40,9 +44,9 @@ export class AdminController {
 
       res.json({
         success: true,
-        message: `Models synced successfully from ${source} Ollama`,
+        message: 'Models synced successfully from local Ollama',
         data: {
-          source,
+          source: 'local',
           baseUrl,
           totalModels: models.length,
           availableModels: models.filter((m) => m.isAvailable).length,
@@ -63,7 +67,7 @@ export class AdminController {
   }
 
   /**
-   * List all models
+   * List all models from database
    * GET /api/admin/models
    */
   static async listModels(req: Request, res: Response): Promise<void> {
@@ -98,16 +102,14 @@ export class AdminController {
   }
 
   /**
-   * List models directly from Ollama API (without database sync)
-   * GET /api/admin/models/remote
-   * Query params: source=local|remote (default: local)
+   * List models directly from local Ollama API
+   * GET /api/admin/models/available
    */
-  static async listRemoteModels(req: Request, res: Response): Promise<void> {
+  static async listAvailableModels(req: Request, res: Response): Promise<void> {
     try {
-      const source = (req.query.source as string) || 'local';
-      const baseUrl = AdminController.getOllamaBaseUrl(source);
+      const baseUrl = AdminController.getLocalOllamaUrl();
 
-      logger.info(`Querying models directly from ${source} Ollama at ${baseUrl}`);
+      logger.info(`Querying models directly from local Ollama at ${baseUrl}`);
 
       const response = await axios.get(`${baseUrl}/api/tags`, { timeout: 10000 });
       const models = response.data?.models || [];
@@ -115,7 +117,7 @@ export class AdminController {
       res.json({
         success: true,
         data: {
-          source,
+          source: 'local',
           baseUrl,
           totalModels: models.length,
           models: models.map((m: any) => ({
@@ -128,18 +130,17 @@ export class AdminController {
         },
       });
     } catch (error) {
-      logger.error('Error listing remote models:', error);
+      logger.error('Error listing local models:', error);
       res.status(500).json({
-        error: 'Failed to list models from Ollama',
+        error: 'Failed to list models from local Ollama',
         message: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
 
   /**
-   * Pull/download a model from Ollama
+   * Pull/download a model from local Ollama
    * POST /api/admin/models/pull
-   * Query params: source=local|remote (default: local)
    */
   static async pullModel(req: Request, res: Response): Promise<void> {
     const { modelName } = req.body;
@@ -153,13 +154,12 @@ export class AdminController {
     }
 
     try {
-      const source = (req.query.source as string) || 'local';
-      const baseUrl = AdminController.getOllamaBaseUrl(source);
+      const baseUrl = AdminController.getLocalOllamaUrl();
 
       OllamaModelService.pullModel(modelName, baseUrl)
         .then(async () => {
           await OllamaModelService.syncModelsFromOllama(baseUrl);
-          logger.info(`Model ${modelName} pulled and synced successfully from ${source}`);
+          logger.info(`Model ${modelName} pulled and synced successfully from local Ollama`);
         })
         .catch((error) => {
           logger.error(`Failed to pull model ${modelName}:`, error);
@@ -167,10 +167,10 @@ export class AdminController {
 
       res.json({
         success: true,
-        message: `Started pulling model: ${modelName} from ${source} Ollama`,
+        message: `Started pulling model: ${modelName} from local Ollama`,
         data: {
           modelName,
-          source,
+          source: 'local',
           baseUrl,
           status: 'pulling',
         },
@@ -277,9 +277,8 @@ export class AdminController {
   }
 
   /**
-   * Test a model's functionality
+   * Test a model's functionality on local Ollama
    * POST /api/admin/models/test
-   * Query params: source=local|remote (default: local)
    */
   static async testModel(req: Request, res: Response): Promise<void> {
     const { modelName } = req.body;
@@ -293,18 +292,17 @@ export class AdminController {
     }
 
     try {
-      const source = (req.query.source as string) || 'local';
-      const baseUrl = AdminController.getOllamaBaseUrl(source);
+      const baseUrl = AdminController.getLocalOllamaUrl();
 
       const result = await OllamaModelService.testModel(modelName, baseUrl);
 
       if (result.success) {
         res.json({
           success: true,
-          message: `Model ${modelName} is working correctly on ${source} Ollama`,
+          message: `Model ${modelName} is working correctly on local Ollama`,
           data: {
             modelName,
-            source,
+            source: 'local',
             baseUrl,
             testResponse: result.response,
           },
@@ -316,7 +314,7 @@ export class AdminController {
           message: result.error || 'Model did not respond',
           data: {
             modelName,
-            source,
+            source: 'local',
             baseUrl,
           },
         });
@@ -331,16 +329,14 @@ export class AdminController {
   }
 
   /**
-   * Check Ollama service health
+   * Check local Ollama service health
    * GET /api/admin/ollama/health
-   * Query params: source=local|remote (default: local)
    */
   static async checkOllamaHealth(req: Request, res: Response): Promise<void> {
     try {
-      const source = (req.query.source as string) || 'local';
-      const baseUrl = AdminController.getOllamaBaseUrl(source);
+      const baseUrl = AdminController.getLocalOllamaUrl();
 
-      logger.info(`Checking Ollama health at ${baseUrl}`);
+      logger.info(`Checking local Ollama health at ${baseUrl}`);
 
       const startTime = Date.now();
       const response = await axios.get(`${baseUrl}/api/tags`, { timeout: 5000 });
@@ -351,7 +347,7 @@ export class AdminController {
       res.json({
         success: true,
         data: {
-          source,
+          source: 'local',
           baseUrl,
           status: 'healthy',
           responseTimeMs: responseTime,
@@ -359,13 +355,13 @@ export class AdminController {
         },
       });
     } catch (error) {
-      logger.error('Ollama health check failed:', error);
+      logger.error('Local Ollama health check failed:', error);
       res.status(503).json({
         success: false,
         error: 'Ollama Service Unavailable',
         message: error instanceof Error ? error.message : 'Unknown error',
         data: {
-          source: req.query.source || 'local',
+          source: 'local',
           status: 'unhealthy',
         },
       });
@@ -373,28 +369,24 @@ export class AdminController {
   }
 
   /**
-   * Get Ollama service information
+   * Get local Ollama service information
    * GET /api/admin/ollama/info
-   * Query params: source=local|remote (default: local)
    */
   static async getOllamaInfo(req: Request, res: Response): Promise<void> {
     try {
-      const source = (req.query.source as string) || 'local';
-      const baseUrl = AdminController.getOllamaBaseUrl(source);
+      const baseUrl = AdminController.getLocalOllamaUrl();
 
-      logger.info(`Getting Ollama info from ${baseUrl}`);
+      logger.info(`Getting local Ollama info from ${baseUrl}`);
 
-      // Get version info
       const versionResponse = await axios.get(`${baseUrl}/api/version`, { timeout: 5000 }).catch(() => null);
 
-      // Get models
       const modelsResponse = await axios.get(`${baseUrl}/api/tags`, { timeout: 10000 });
       const models = modelsResponse.data?.models || [];
 
       res.json({
         success: true,
         data: {
-          source,
+          source: 'local',
           baseUrl,
           version: versionResponse?.data?.version || 'unknown',
           totalModels: models.length,
@@ -409,9 +401,226 @@ export class AdminController {
         },
       });
     } catch (error) {
-      logger.error('Error getting Ollama info:', error);
+      logger.error('Error getting local Ollama info:', error);
       res.status(500).json({
         error: 'Failed to get Ollama info',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  // ==================== REMOTE OLLAMA ENDPOINTS ====================
+
+  /**
+   * List models from remote Ollama API
+   * GET /api/admin/ollama/remote/models
+   */
+  static async listRemoteModels(req: Request, res: Response): Promise<void> {
+    try {
+      const baseUrl = AdminController.getRemoteOllamaUrl();
+
+      logger.info(`Querying models from remote Ollama at ${baseUrl}`);
+
+      const response = await axios.get(`${baseUrl}/api/tags`, { timeout: 10000 });
+      const models = response.data?.models || [];
+
+      res.json({
+        success: true,
+        data: {
+          source: 'remote',
+          baseUrl,
+          totalModels: models.length,
+          models: models.map((m: any) => ({
+            name: m.name,
+            size: m.size,
+            digest: m.digest,
+            modifiedAt: m.modified_at,
+            details: m.details,
+          })),
+        },
+      });
+    } catch (error) {
+      logger.error('Error listing remote models:', error);
+      res.status(500).json({
+        error: 'Failed to list models from remote Ollama',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * Pull/download a model on remote Ollama
+   * POST /api/admin/ollama/remote/pull
+   */
+  static async pullRemoteModel(req: Request, res: Response): Promise<void> {
+    const { modelName } = req.body;
+
+    if (!modelName) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'modelName is required',
+      });
+      return;
+    }
+
+    try {
+      const baseUrl = AdminController.getRemoteOllamaUrl();
+
+      OllamaModelService.pullModel(modelName, baseUrl)
+        .then(async () => {
+          logger.info(`Model ${modelName} pulled successfully on remote Ollama`);
+        })
+        .catch((error) => {
+          logger.error(`Failed to pull model ${modelName} on remote:`, error);
+        });
+
+      res.json({
+        success: true,
+        message: `Started pulling model: ${modelName} on remote Ollama`,
+        data: {
+          modelName,
+          source: 'remote',
+          baseUrl,
+          status: 'pulling',
+        },
+      });
+    } catch (error) {
+      logger.error('Error initiating remote model pull:', error);
+      res.status(500).json({
+        error: 'Failed to pull model on remote Ollama',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * Test a model on remote Ollama
+   * POST /api/admin/ollama/remote/test
+   */
+  static async testRemoteModel(req: Request, res: Response): Promise<void> {
+    const { modelName } = req.body;
+
+    if (!modelName) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'modelName is required',
+      });
+      return;
+    }
+
+    try {
+      const baseUrl = AdminController.getRemoteOllamaUrl();
+
+      const result = await OllamaModelService.testModel(modelName, baseUrl);
+
+      if (result.success) {
+        res.json({
+          success: true,
+          message: `Model ${modelName} is working correctly on remote Ollama`,
+          data: {
+            modelName,
+            source: 'remote',
+            baseUrl,
+            testResponse: result.response,
+          },
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Model Test Failed',
+          message: result.error || 'Model did not respond',
+          data: {
+            modelName,
+            source: 'remote',
+            baseUrl,
+          },
+        });
+      }
+    } catch (error) {
+      logger.error('Error testing remote model:', error);
+      res.status(500).json({
+        error: 'Failed to test model on remote Ollama',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * Check remote Ollama service health
+   * GET /api/admin/ollama/remote/health
+   */
+  static async checkRemoteOllamaHealth(req: Request, res: Response): Promise<void> {
+    try {
+      const baseUrl = AdminController.getRemoteOllamaUrl();
+
+      logger.info(`Checking remote Ollama health at ${baseUrl}`);
+
+      const startTime = Date.now();
+      const response = await axios.get(`${baseUrl}/api/tags`, { timeout: 5000 });
+      const responseTime = Date.now() - startTime;
+
+      const modelCount = response.data?.models?.length || 0;
+
+      res.json({
+        success: true,
+        data: {
+          source: 'remote',
+          baseUrl,
+          status: 'healthy',
+          responseTimeMs: responseTime,
+          modelCount,
+        },
+      });
+    } catch (error) {
+      logger.error('Remote Ollama health check failed:', error);
+      res.status(503).json({
+        success: false,
+        error: 'Remote Ollama Service Unavailable',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        data: {
+          source: 'remote',
+          status: 'unhealthy',
+        },
+      });
+    }
+  }
+
+  /**
+   * Get remote Ollama service information
+   * GET /api/admin/ollama/remote/info
+   */
+  static async getRemoteOllamaInfo(req: Request, res: Response): Promise<void> {
+    try {
+      const baseUrl = AdminController.getRemoteOllamaUrl();
+
+      logger.info(`Getting remote Ollama info from ${baseUrl}`);
+
+      const versionResponse = await axios.get(`${baseUrl}/api/version`, { timeout: 5000 }).catch(() => null);
+
+      const modelsResponse = await axios.get(`${baseUrl}/api/tags`, { timeout: 10000 });
+      const models = modelsResponse.data?.models || [];
+
+      res.json({
+        success: true,
+        data: {
+          source: 'remote',
+          baseUrl,
+          version: versionResponse?.data?.version || 'unknown',
+          totalModels: models.length,
+          totalSize: models.reduce((acc: number, m: any) => acc + (m.size || 0), 0),
+          models: models.map((m: any) => ({
+            name: m.name,
+            size: m.size,
+            family: m.details?.family,
+            parameterSize: m.details?.parameter_size,
+            quantization: m.details?.quantization_level,
+          })),
+        },
+      });
+    } catch (error) {
+      logger.error('Error getting remote Ollama info:', error);
+      res.status(500).json({
+        error: 'Failed to get remote Ollama info',
         message: error instanceof Error ? error.message : 'Unknown error',
       });
     }

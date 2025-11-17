@@ -9,12 +9,11 @@ import { asyncHandler } from '../middlewares';
 
 const router = express.Router();
 
-// ==================== MODEL MANAGEMENT ====================
+// ==================== LOCAL OLLAMA MODEL MANAGEMENT ====================
 
 /**
- * Sync models from Ollama to database
+ * Sync models from local Ollama to database
  * POST /api/admin/models/sync
- * Query params: source=local|remote (default: local)
  */
 router.post('/models/sync', asyncHandler(AdminController.syncModels));
 
@@ -25,11 +24,10 @@ router.post('/models/sync', asyncHandler(AdminController.syncModels));
 router.get('/models', asyncHandler(AdminController.listModels));
 
 /**
- * List models directly from Ollama API (without database sync)
- * GET /api/admin/models/remote
- * Query params: source=local|remote (default: local)
+ * List models directly from local Ollama API (without database sync)
+ * GET /api/admin/models/available
  */
-router.get('/models/remote', asyncHandler(AdminController.listRemoteModels));
+router.get('/models/available', asyncHandler(AdminController.listAvailableModels));
 
 /**
  * Get recommended model
@@ -38,16 +36,14 @@ router.get('/models/remote', asyncHandler(AdminController.listRemoteModels));
 router.get('/models/recommended', asyncHandler(AdminController.getRecommendedModel));
 
 /**
- * Test a model's functionality
+ * Test a model's functionality on local Ollama
  * POST /api/admin/models/test
- * Query params: source=local|remote (default: local)
  */
 router.post('/models/test', asyncHandler(AdminController.testModel));
 
 /**
- * Pull/download a model from Ollama
+ * Pull/download a model from local Ollama
  * POST /api/admin/models/pull
- * Query params: source=local|remote (default: local)
  */
 router.post('/models/pull', asyncHandler(AdminController.pullModel));
 
@@ -63,20 +59,50 @@ router.patch('/models/:id', asyncHandler(AdminController.updateModel));
  */
 router.delete('/models/:id', asyncHandler(AdminController.deleteModel));
 
-// ==================== OLLAMA SERVICE MANAGEMENT ====================
+// ==================== LOCAL OLLAMA SERVICE MANAGEMENT ====================
 
 /**
- * Check Ollama service health
+ * Check local Ollama service health
  * GET /api/admin/ollama/health
- * Query params: source=local|remote (default: local)
  */
 router.get('/ollama/health', asyncHandler(AdminController.checkOllamaHealth));
 
 /**
- * Get Ollama service information
+ * Get local Ollama service information
  * GET /api/admin/ollama/info
- * Query params: source=local|remote (default: local)
  */
 router.get('/ollama/info', asyncHandler(AdminController.getOllamaInfo));
+
+// ==================== REMOTE OLLAMA SERVICE MANAGEMENT ====================
+
+/**
+ * List models from remote Ollama API
+ * GET /api/admin/ollama/remote/models
+ */
+router.get('/ollama/remote/models', asyncHandler(AdminController.listRemoteModels));
+
+/**
+ * Pull/download a model on remote Ollama
+ * POST /api/admin/ollama/remote/pull
+ */
+router.post('/ollama/remote/pull', asyncHandler(AdminController.pullRemoteModel));
+
+/**
+ * Test a model on remote Ollama
+ * POST /api/admin/ollama/remote/test
+ */
+router.post('/ollama/remote/test', asyncHandler(AdminController.testRemoteModel));
+
+/**
+ * Check remote Ollama service health
+ * GET /api/admin/ollama/remote/health
+ */
+router.get('/ollama/remote/health', asyncHandler(AdminController.checkRemoteOllamaHealth));
+
+/**
+ * Get remote Ollama service information
+ * GET /api/admin/ollama/remote/info
+ */
+router.get('/ollama/remote/info', asyncHandler(AdminController.getRemoteOllamaInfo));
 
 export default router;
