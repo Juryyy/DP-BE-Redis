@@ -156,6 +156,119 @@ export const useWizardStore = defineStore('wizard', {
         const err = error as { response?: { data?: { error?: string } }; message?: string };
         this.error = err.response?.data?.error || err.message || 'Failed to fetch models';
         console.error('Failed to fetch models:', error);
+        // Load mock data for development
+        this.loadMockProviders();
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    loadMockProviders() {
+      this.providers = {
+        ollama: {
+          type: 'local',
+          available: true,
+          models: [
+            { id: 'llama3.1:8b', name: 'Llama 3.1 8B', contextWindow: 8192, recommended: true },
+            { id: 'llama3.1:70b', name: 'Llama 3.1 70B', contextWindow: 8192 },
+            { id: 'mistral:latest', name: 'Mistral', contextWindow: 8192 }
+          ],
+          baseUrl: 'http://localhost:11434'
+        },
+        openai: {
+          type: 'api',
+          available: true,
+          requiresApiKey: true,
+          models: [
+            { id: 'gpt-4-turbo-preview', name: 'GPT-4 Turbo', contextWindow: 128000, costPer1kTokens: 0.01 },
+            { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', contextWindow: 16385, costPer1kTokens: 0.0005 }
+          ]
+        },
+        anthropic: {
+          type: 'api',
+          available: true,
+          requiresApiKey: true,
+          models: [
+            { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindow: 200000, costPer1kTokens: 0.003, recommended: true }
+          ]
+        },
+        gemini: {
+          type: 'api',
+          available: false,
+          requiresApiKey: true,
+          models: [
+            { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', contextWindow: 1000000, costPer1kTokens: 0.00125 }
+          ]
+        }
+      };
+      this.selectedProvider = 'ollama';
+      this.selectedModel = 'llama3.1:8b';
+    },
+
+    async configureModel() {
+      if (!this.sessionId) {
+        this.error = 'No session available';
+        return false;
+      }
+
+      this.isLoading = true;
+      this.error = null;
+
+      try {
+        const response = await api.post('/models/configure', {
+          sessionId: this.sessionId,
+          provider: this.selectedProvider,
+          model: this.selectedModel,
+          apiKey: this.apiKeys[this.selectedProvider] || undefined,
+          options: this.providerOptions
+        });
+
+        return response.data.success;
+      } catch (error: unknown) {
+        const err = error as { response?: { data?: { error?: string } }; message?: string };
+        this.error = err.response?.data?.error || err.message || 'Failed to configure model';
+        console.error('Failed to configure model:', error);
+        return false;
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    async startProcessing() {
+      if (!this.sessionId) {
+        this.error = 'No session available';
+        return false;
+      }
+
+      this.isLoading = true;
+      this.error = null;
+
+      try {
+        // First configure the model
+        await this.configureModel();
+
+        // Then submit prompts
+        const response = await api.post('/prompts', {
+          sessionId: this.sessionId,
+          prompts: [
+            {
+              content: this.promptText,
+              priority: 1,
+              targetType: 'GLOBAL'
+            }
+          ]
+        });
+
+        if (response.data.success) {
+          // Start polling for status or redirect to results
+          return true;
+        }
+        return false;
+      } catch (error: unknown) {
+        const err = error as { response?: { data?: { error?: string } }; message?: string };
+        this.error = err.response?.data?.error || err.message || 'Failed to start processing';
+        console.error('Failed to start processing:', error);
+        return false;
       } finally {
         this.isLoading = false;
       }
