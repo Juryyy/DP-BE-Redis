@@ -10,6 +10,7 @@
         @back="wizardStore.previousStep"
         @next="wizardStore.nextStep"
         @process="handleStartProcessing"
+        @update:current-step="(step) => wizardStore.currentStep = step"
       >
         <template #step1>
           <FileUploader

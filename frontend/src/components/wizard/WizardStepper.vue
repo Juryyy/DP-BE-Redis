@@ -1,11 +1,12 @@
 <template>
   <q-stepper
-    v-model="currentStep"
+    :model-value="currentStep"
     ref="stepper"
     color="primary"
     animated
     flat
     header-nav
+    @update:model-value="$emit('update:current-step', $event)"
   >
     <q-step
       :name="1"
@@ -84,5 +85,6 @@ defineEmits<{
   (e: 'back'): void;
   (e: 'next'): void;
   (e: 'process'): void;
+  (e: 'update:current-step', value: number): void;
 }>();
 </script>
