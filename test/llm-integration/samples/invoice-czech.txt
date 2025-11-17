@@ -1,0 +1,39 @@
+FAKTURA č. 2024-001234
+
+Dodavatel:
+ABC Software s.r.o.
+Technická 15
+110 00 Praha 1
+IČO: 12345678
+DIČ: CZ12345678
+
+Odběratel:
+XYZ Corporation a.s.
+Průmyslová 42
+602 00 Brno
+IČO: 87654321
+DIČ: CZ87654321
+
+Datum vystavení: 15.11.2024
+Datum splatnosti: 30.11.2024
+Způsob úhrady: Bankovní převod
+
+POLOŽKY:
+1. Vývoj webové aplikace - 120 hodin × 1500 Kč = 180 000 Kč
+2. Testování a QA - 40 hodin × 1200 Kč = 48 000 Kč
+3. Dokumentace - 20 hodin × 1000 Kč = 20 000 Kč
+4. Licence Enterprise - 1 ks × 25 000 Kč = 25 000 Kč
+
+Mezisoučet: 273 000 Kč
+DPH 21%: 57 330 Kč
+CELKEM K ÚHRADĚ: 330 330 Kč
+
+Bankovní spojení:
+Česká spořitelna a.s.
+Číslo účtu: 1234567890/0800
+IBAN: CZ65 0800 0000 1234 5678 90
+SWIFT: GIBACZPX
+
+Variabilní symbol: 2024001234
+
+Děkujeme za spolupráci!

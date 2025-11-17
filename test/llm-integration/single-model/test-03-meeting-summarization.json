@@ -1,0 +1,41 @@
+{
+  "testId": "SINGLE-03",
+  "testName": "Meeting Notes Summarization",
+  "description": "Summarize meeting notes and extract action items",
+  "sampleFile": "../samples/meeting-notes.docx",
+  "provider": "gemini",
+  "model": "gemini-1.5-pro",
+  "temperature": 0.2,
+  "maxTokens": 2500,
+  "prompts": [
+    {
+      "content": "Vytvoř stručné shrnutí porady obsahující: 1) Hlavní rozhodnutí, 2) Plánované user stories pro další sprint včetně story points, 3) Seznam akčních položek s odpovědnými osobami a termíny, 4) Důležité termíny (další schůzky). Formátuj přehledně s odrážkami.",
+      "priority": 1,
+      "targetType": "FULL_DOCUMENT"
+    }
+  ],
+  "expectedOutput": {
+    "type": "text",
+    "requiredTopics": [
+      "user stories",
+      "story points",
+      "akční položky",
+      "termíny",
+      "sprint"
+    ]
+  },
+  "alternativeProviders": [
+    {
+      "provider": "openai",
+      "model": "gpt-4-turbo-preview"
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-3-5-sonnet-20241022"
+    },
+    {
+      "provider": "ollama",
+      "model": "llama3.1:8b"
+    }
+  ]
+}

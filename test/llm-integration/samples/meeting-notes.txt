@@ -1,0 +1,82 @@
+ZÁPIS Z PORADY - SPRINT PLANNING Q4 2024
+
+Datum: 12.11.2024, 10:00 - 12:30
+Místo: Zasedací místnost A, Praha
+Online: Teams meeting ID: 987654321
+
+ÚČASTNÍCI:
+- Petr Svoboda (Product Owner) - přítomen
+- Marie Dvořáková (Scrum Master) - přítomna
+- Tomáš Horák (Tech Lead) - přítomen
+- Eva Procházková (Frontend Developer) - online
+- Martin Krejčí (Backend Developer) - přítomen
+- Jana Němcová (QA Engineer) - online
+- Omluveni: Pavel Malý (DevOps)
+
+AGENDA:
+1. Rekapitulace předchozího sprintu
+2. Backlog grooming
+3. Plánování sprintu 2024-Q4-03
+4. Diskuze o technickém dluhu
+5. Různé
+
+BODY JEDNÁNÍ:
+
+1. REKAPITULACE SPRINTU 2024-Q4-02
+- Velocity: 42 story points (cíl byl 45)
+- Dokončené user stories: 8 z 10
+- Nedokončeno: US-234 (User dashboard redesign) - přesun do dalšího sprintu
+- Nedokončeno: US-245 (Payment gateway integration) - blokováno externím dodavatelem
+
+Tomáš: "US-245 je blokováno, protože dodavatel PayGate ještě neposkytl API dokumentaci. Očekáváme ji do konce týdne."
+
+Petr: "Prioritizujme US-234, protože máme zpětnou vazbu od zákazníků, že dashboard je nepřehledný."
+
+2. BACKLOG GROOMING
+Přehodnocené položky:
+- US-250: Export dat do PDF - zvýšena priorita (stakeholder request)
+- US-251: Multi-tenant support - odloženo na Q1 2025
+- US-252: Performance monitoring dashboard - přidáno do backlogu
+
+3. SPRINT 2024-Q4-03 PLÁNOVÁNÍ
+Cíl sprintu: "Dokončit user dashboard a implementovat export funkcionalitu"
+
+Vybrané user stories:
+1. US-234: User dashboard redesign (13 SP) - Eva, Martin
+2. US-250: Export dat do PDF (8 SP) - Martin
+3. US-253: Automatické notifikace (8 SP) - Tomáš
+4. US-254: Bug fixes z produkce (5 SP) - Eva
+5. US-255: Unit test coverage improvement (8 SP) - Jana
+
+Celkem: 42 story points (konzervativní odhad)
+
+4. TECHNICKÝ DLUH
+Identifikované položky:
+- Legacy API endpoints (2 dny práce)
+- Deprecated dependencies aktualizace (1 den)
+- Database schema refactoring (3 dny)
+- Code documentation (2 dny)
+
+Rozhodnutí: Alokovat 20% kapacity každého sprintu na technický dluh
+
+Marie: "Musíme být systematičtí, jinak nám technický dluh přeroste přes hlavu."
+
+5. RŮZNÉ
+- Nový team member nastupuje 1.12.2024 (Junior Developer)
+- Vánoční večírek 20.12.2024 - hlasování o místě
+- Code review guidelines budou aktualizovány - Tomáš pošle draft do konce týdne
+
+AKČNÍ POLOŽKY:
+[AP-1] Tomáš: Kontaktovat PayGate ohledně API dokumentace - do 15.11.
+[AP-2] Eva: Připravit mockupy pro US-234 - do 13.11.
+[AP-3] Jana: Nastavit test environment pro sprint - do 14.11.
+[AP-4] Marie: Rozeslat pozvánky na retrospektivu - do 13.11.
+[AP-5] Petr: Aktualizovat roadmap pro stakeholders - do 18.11.
+
+DALŠÍ SCHŮZKA:
+Daily standup: každý den 9:30
+Sprint review: 29.11.2024, 14:00
+Retrospektiva: 29.11.2024, 15:30
+
+Zápis vyhotovila: Marie Dvořáková
+Schválil: Petr Svoboda

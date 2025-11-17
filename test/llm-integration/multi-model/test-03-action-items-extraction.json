@@ -1,0 +1,79 @@
+{
+  "testId": "MULTI-03",
+  "testName": "Action Items Extraction - Model Comparison",
+  "description": "Compare models extracting and categorizing action items from meeting notes",
+  "sampleFile": "../samples/meeting-notes.docx",
+  "prompt": "Ze zápisu z porady extrahuj všechny akční položky. Pro každou položku uveď: ID, popis úkolu, odpovědná osoba, termín splnění, priorita (vysoká/střední/nízká). Vrať data ve formátu JSON array.",
+  "systemPrompt": "Jsi asistent pro projektové řízení. Přesně extrahuj informace ze zápisů z porad a strukturuj je pro snadné sledování.",
+  "models": [
+    {
+      "provider": "openai",
+      "model": "gpt-4-turbo-preview",
+      "temperature": 0.1,
+      "maxTokens": 2000,
+      "enabled": true
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-3-5-sonnet-20241022",
+      "temperature": 0.1,
+      "maxTokens": 2000,
+      "enabled": true
+    },
+    {
+      "provider": "gemini",
+      "model": "gemini-1.5-pro",
+      "temperature": 0.1,
+      "maxTokens": 2000,
+      "enabled": true
+    },
+    {
+      "provider": "ollama",
+      "model": "llama3.1:8b",
+      "temperature": 0.1,
+      "maxTokens": 2000,
+      "enabled": true
+    },
+    {
+      "provider": "ollama-remote",
+      "model": "llama3.1:8b",
+      "temperature": 0.1,
+      "maxTokens": 2000,
+      "enabled": false,
+      "comment": "Enable if remote Ollama is configured"
+    }
+  ],
+  "comparisonCriteria": {
+    "completeness": "Počet správně identifikovaných akčních položek",
+    "accuracy": "Přesnost extrahovaných detailů",
+    "consistency": "Konzistence formátu výstupu",
+    "inferredPriority": "Kvalita odvozené priority"
+  },
+  "expectedActionItems": [
+    {
+      "id": "AP-1",
+      "responsible": "Tomáš",
+      "deadline": "15.11"
+    },
+    {
+      "id": "AP-2",
+      "responsible": "Eva",
+      "deadline": "13.11"
+    },
+    {
+      "id": "AP-3",
+      "responsible": "Jana",
+      "deadline": "14.11"
+    },
+    {
+      "id": "AP-4",
+      "responsible": "Marie",
+      "deadline": "13.11"
+    },
+    {
+      "id": "AP-5",
+      "responsible": "Petr",
+      "deadline": "18.11"
+    }
+  ]
+}
