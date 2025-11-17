@@ -54,27 +54,44 @@ services:
       REDIS_PORT: 6379
 
       # File Upload
-      MAX_FILE_SIZE: 52428800
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-52428800}
       UPLOAD_DIR: /app/uploads
-      ALLOWED_FILE_TYPES: .pdf,.docx,.xlsx,.doc,.xls
+      ALLOWED_FILE_TYPES: ${ALLOWED_FILE_TYPES:-.pdf,.docx,.xlsx,.doc,.xls}
 
-      # Ollama (use host network for local Ollama)
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
-      OLLAMA_MODEL: llama3.1:8b
+      # Ollama Configuration
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
+      OLLAMA_REMOTE_URL: ${OLLAMA_REMOTE_URL:-}
 
-      # Default provider
-      DEFAULT_AI_PROVIDER: ollama
+      # OpenAI Configuration
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4-turbo-preview}
+
+      # Google Gemini Configuration
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-pro}
+
+      # Anthropic Claude Configuration
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-3-5-sonnet-20241022}
+
+      # AI Processing Configuration
+      DEFAULT_AI_PROVIDER: ${DEFAULT_AI_PROVIDER:-ollama}
+      MAX_TOKENS_PER_REQUEST: ${MAX_TOKENS_PER_REQUEST:-4096}
 
       # MarkItDown Parser Service
       MARKITDOWN_URL: http://markitdown-parser:8071
 
       # Session
-      SESSION_EXPIRE_SECONDS: 3600
-      MAX_ACTIVE_SESSIONS: 100
+      SESSION_EXPIRE_SECONDS: ${SESSION_EXPIRE_SECONDS:-3600}
+      MAX_ACTIVE_SESSIONS: ${MAX_ACTIVE_SESSIONS:-100}
 
       # Processing
-      MAX_CONCURRENT_PROCESSING: 5
-      CONVERSATION_TTL_SECONDS: 86400
+      MAX_CONCURRENT_PROCESSING: ${MAX_CONCURRENT_PROCESSING:-5}
+      CONVERSATION_TTL_SECONDS: ${CONVERSATION_TTL_SECONDS:-86400}
+
+      # Multi-Model Configuration
+      MULTI_MODEL_CONFIG: ${MULTI_MODEL_CONFIG:-}
     ports:
       - "3000:3000"
     volumes:
