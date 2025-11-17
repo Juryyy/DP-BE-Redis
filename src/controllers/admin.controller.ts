@@ -412,6 +412,19 @@ export class AdminController {
   // ==================== REMOTE OLLAMA ENDPOINTS ====================
 
   /**
+   * Get axios config with ngrok headers to bypass interstitial page
+   */
+  private static getRemoteAxiosConfig(timeout: number = 10000) {
+    return {
+      timeout,
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+        'User-Agent': 'DP-BE-Redis/1.0',
+      },
+    };
+  }
+
+  /**
    * List models from remote Ollama API
    * GET /api/admin/ollama/remote/models
    */
@@ -421,7 +434,7 @@ export class AdminController {
 
       logger.info(`Querying models from remote Ollama at ${baseUrl}`);
 
-      const response = await axios.get(`${baseUrl}/api/tags`, { timeout: 10000 });
+      const response = await axios.get(`${baseUrl}/api/tags`, AdminController.getRemoteAxiosConfig());
       const models = response.data?.models || [];
 
       res.json({
@@ -465,8 +478,12 @@ export class AdminController {
 
     try {
       const baseUrl = AdminController.getRemoteOllamaUrl();
+      const headers = {
+        'ngrok-skip-browser-warning': 'true',
+        'User-Agent': 'DP-BE-Redis/1.0',
+      };
 
-      OllamaModelService.pullModel(modelName, baseUrl)
+      OllamaModelService.pullModel(modelName, baseUrl, headers)
         .then(async () => {
           logger.info(`Model ${modelName} pulled successfully on remote Ollama`);
         })
@@ -510,8 +527,12 @@ export class AdminController {
 
     try {
       const baseUrl = AdminController.getRemoteOllamaUrl();
+      const headers = {
+        'ngrok-skip-browser-warning': 'true',
+        'User-Agent': 'DP-BE-Redis/1.0',
+      };
 
-      const result = await OllamaModelService.testModel(modelName, baseUrl);
+      const result = await OllamaModelService.testModel(modelName, baseUrl, headers);
 
       if (result.success) {
         res.json({
@@ -556,7 +577,7 @@ export class AdminController {
       logger.info(`Checking remote Ollama health at ${baseUrl}`);
 
       const startTime = Date.now();
-      const response = await axios.get(`${baseUrl}/api/tags`, { timeout: 5000 });
+      const response = await axios.get(`${baseUrl}/api/tags`, AdminController.getRemoteAxiosConfig(5000));
       const responseTime = Date.now() - startTime;
 
       const modelCount = response.data?.models?.length || 0;
@@ -595,9 +616,9 @@ export class AdminController {
 
       logger.info(`Getting remote Ollama info from ${baseUrl}`);
 
-      const versionResponse = await axios.get(`${baseUrl}/api/version`, { timeout: 5000 }).catch(() => null);
+      const versionResponse = await axios.get(`${baseUrl}/api/version`, AdminController.getRemoteAxiosConfig(5000)).catch(() => null);
 
-      const modelsResponse = await axios.get(`${baseUrl}/api/tags`, { timeout: 10000 });
+      const modelsResponse = await axios.get(`${baseUrl}/api/tags`, AdminController.getRemoteAxiosConfig());
       const models = modelsResponse.data?.models || [];
 
       res.json({
