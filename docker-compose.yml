@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: dppassword
       POSTGRES_DB: document_processor
     ports:
-      - "5436:5436"
+      - "5436:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -47,7 +47,7 @@ services:
       PORT: 3000
 
       # Database
-      DATABASE_URL: postgresql://dpuser:dppassword@postgres:5436/document_processor
+      DATABASE_URL: postgresql://dpuser:dppassword@postgres:5432/document_processor
 
       # Redis
       REDIS_HOST: redis
