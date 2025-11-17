@@ -383,8 +383,17 @@ paths:
       tags:
         - Admin
       summary: Sync Models from Ollama
-      description: Query Ollama instance and sync available models to database
+      description: Query Ollama instance (local or remote) and sync available models to database
       operationId: syncModels
+      parameters:
+        - name: source
+          in: query
+          description: Ollama instance source (local or remote)
+          required: false
+          schema:
+            type: string
+            enum: [local, remote]
+            default: local
       responses:
         '200':
           description: Models synced successfully
@@ -398,10 +407,16 @@ paths:
                     example: true
                   message:
                     type: string
-                    example: Models synced successfully
+                    example: Models synced successfully from local Ollama
                   data:
                     type: object
                     properties:
+                      source:
+                        type: string
+                        example: local
+                      baseUrl:
+                        type: string
+                        example: http://localhost:11434
                       totalModels:
                         type: integer
                         example: 3
@@ -502,8 +517,17 @@ paths:
       tags:
         - Admin
       summary: Pull Model from Ollama
-      description: Download a new model from Ollama registry (runs in background)
+      description: Download a new model from Ollama registry (runs in background). Can target local or remote Ollama instance.
       operationId: pullModel
+      parameters:
+        - name: source
+          in: query
+          description: Ollama instance source (local or remote)
+          required: false
+          schema:
+            type: string
+            enum: [local, remote]
+            default: local
       requestBody:
         required: true
         content:
@@ -530,18 +554,181 @@ paths:
                     example: true
                   message:
                     type: string
-                    example: Started pulling model llama3:8b
+                    example: Started pulling model llama3:8b from local Ollama
                   data:
                     type: object
                     properties:
                       modelName:
                         type: string
                         example: llama3:8b
+                      source:
+                        type: string
+                        example: local
+                      baseUrl:
+                        type: string
+                        example: http://localhost:11434
                       status:
                         type: string
                         example: pulling
         '400':
           $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /admin/models/test:
+    post:
+      tags:
+        - Admin
+      summary: Test Model Functionality
+      description: Test if a specific model is working correctly on local or remote Ollama
+      operationId: testModel
+      parameters:
+        - name: source
+          in: query
+          description: Ollama instance source (local or remote)
+          required: false
+          schema:
+            type: string
+            enum: [local, remote]
+            default: local
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - modelName
+              properties:
+                modelName:
+                  type: string
+                  example: llama3.1:8b
+                  description: Name of the model to test
+      responses:
+        '200':
+          description: Model test successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Model llama3.1:8b is working correctly on local Ollama
+                  data:
+                    type: object
+                    properties:
+                      modelName:
+                        type: string
+                        example: llama3.1:8b
+                      source:
+                        type: string
+                        example: local
+                      baseUrl:
+                        type: string
+                        example: http://localhost:11434
+                      testResponse:
+                        type: string
+                        example: Funguje to!
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          description: Model test failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: Model Test Failed
+                  message:
+                    type: string
+                    example: Model did not respond
+                  data:
+                    type: object
+                    properties:
+                      modelName:
+                        type: string
+                      source:
+                        type: string
+                      baseUrl:
+                        type: string
+
+  /admin/models/remote:
+    get:
+      tags:
+        - Admin
+      summary: List Models from Ollama API
+      description: List models directly from Ollama API without database sync. Useful for checking what's available on local or remote instance.
+      operationId: listRemoteModels
+      parameters:
+        - name: source
+          in: query
+          description: Ollama instance source (local or remote)
+          required: false
+          schema:
+            type: string
+            enum: [local, remote]
+            default: local
+      responses:
+        '200':
+          description: Models retrieved from Ollama API
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      source:
+                        type: string
+                        example: remote
+                      baseUrl:
+                        type: string
+                        example: https://abc123.ngrok.io
+                      totalModels:
+                        type: integer
+                        example: 5
+                      models:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              example: llama3.1:8b
+                            size:
+                              type: integer
+                              example: 4661224480
+                            digest:
+                              type: string
+                              example: sha256:abc123
+                            modifiedAt:
+                              type: string
+                              format: date-time
+                            details:
+                              type: object
+                              properties:
+                                family:
+                                  type: string
+                                  example: llama
+                                parameter_size:
+                                  type: string
+                                  example: 8B
+                                quantization_level:
+                                  type: string
+                                  example: Q4_0
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -636,6 +823,146 @@ paths:
                   message:
                     type: string
                     example: Model removed from database
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /admin/ollama/health:
+    get:
+      tags:
+        - Admin
+      summary: Check Ollama Service Health
+      description: Check if local or remote Ollama service is available and responding
+      operationId: checkOllamaHealth
+      parameters:
+        - name: source
+          in: query
+          description: Ollama instance source (local or remote)
+          required: false
+          schema:
+            type: string
+            enum: [local, remote]
+            default: local
+      responses:
+        '200':
+          description: Ollama service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      source:
+                        type: string
+                        example: remote
+                      baseUrl:
+                        type: string
+                        example: https://abc123.ngrok.io
+                      status:
+                        type: string
+                        example: healthy
+                      responseTimeMs:
+                        type: integer
+                        example: 125
+                      modelCount:
+                        type: integer
+                        example: 5
+        '503':
+          description: Ollama service unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: Ollama Service Unavailable
+                  message:
+                    type: string
+                    example: Connection refused
+                  data:
+                    type: object
+                    properties:
+                      source:
+                        type: string
+                        example: remote
+                      status:
+                        type: string
+                        example: unhealthy
+
+  /admin/ollama/info:
+    get:
+      tags:
+        - Admin
+      summary: Get Ollama Service Information
+      description: Get detailed information about local or remote Ollama service including version and models
+      operationId: getOllamaInfo
+      parameters:
+        - name: source
+          in: query
+          description: Ollama instance source (local or remote)
+          required: false
+          schema:
+            type: string
+            enum: [local, remote]
+            default: local
+      responses:
+        '200':
+          description: Ollama service information retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      source:
+                        type: string
+                        example: local
+                      baseUrl:
+                        type: string
+                        example: http://localhost:11434
+                      version:
+                        type: string
+                        example: 0.1.32
+                      totalModels:
+                        type: integer
+                        example: 3
+                      totalSize:
+                        type: integer
+                        example: 15000000000
+                        description: Total size of all models in bytes
+                      models:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              example: llama3.1:8b
+                            size:
+                              type: integer
+                              example: 4661224480
+                            family:
+                              type: string
+                              example: llama
+                            parameterSize:
+                              type: string
+                              example: 8B
+                            quantization:
+                              type: string
+                              example: Q4_0
         '500':
           $ref: '#/components/responses/InternalError'
 
