@@ -86,6 +86,9 @@ import FileUploader from 'components/wizard/FileUploader.vue';
 import ModelSelector from 'components/wizard/ModelSelector.vue';
 import PromptInput from 'components/wizard/PromptInput.vue';
 import ProcessingOptions from 'components/wizard/ProcessingOptions.vue';
+import type { FileUploadEvent } from 'src/types/file.types';
+import type { ProviderOptions } from 'src/types/ai.types';
+import type { AdditionalSettings } from 'src/types/wizard.types';
 
 const $q = useQuasar();
 const wizardStore = useWizardStore();
@@ -117,7 +120,7 @@ watch(() => wizardStore.error, (newError) => {
   }
 });
 
-function handleUploadSuccess(data: { sessionId: string; files: { id: string; filename: string; size: number; mimeType: string; tokenCount?: number }[] }) {
+function handleUploadSuccess(data: FileUploadEvent) {
   wizardStore.sessionId = data.sessionId;
   wizardStore.uploadedFiles = data.files;
 }
@@ -126,11 +129,11 @@ function handleUploadFailed(error: string) {
   wizardStore.error = error;
 }
 
-function handleOptionsUpdate(options: { temperature: number; maxTokens: number; topP: number }) {
+function handleOptionsUpdate(options: ProviderOptions) {
   wizardStore.providerOptions = options;
 }
 
-function handleSettingsUpdate(settings: { includeSourceReferences: boolean; generateVisualizations: boolean; enableFollowUpQuestions: boolean }) {
+function handleSettingsUpdate(settings: AdditionalSettings) {
   wizardStore.additionalSettings = settings;
 }
 

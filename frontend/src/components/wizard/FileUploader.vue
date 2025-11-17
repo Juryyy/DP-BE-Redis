@@ -182,16 +182,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { QUploader } from 'quasar';
-import { useQuasar } from 'quasar';
-
-interface UploadedFile {
-  id: string;
-  filename: string;
-  size: number;
-  mimeType: string;
-  tokenCount?: number;
-}
+import { QUploader, useQuasar } from 'quasar';
+import type { UploadedFile, FileUploadEvent } from 'src/types/file.types';
 
 const props = defineProps<{
   uploadedFiles: UploadedFile[];
@@ -199,7 +191,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'upload-success', data: { sessionId: string; files: UploadedFile[] }): void;
+  (e: 'upload-success', data: FileUploadEvent): void;
   (e: 'upload-failed', error: string): void;
   (e: 'remove-file', fileId: string): void;
 }>();

@@ -67,20 +67,8 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-
-interface UploadedFile {
-  id: string;
-  filename: string;
-  mimeType: string;
-}
-
-interface Template {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  prompt: string;
-}
+import type { UploadedFile } from 'src/types/file.types';
+import type { PromptTemplate } from 'src/types/wizard.types';
 
 const props = defineProps<{
   modelValue: string;
@@ -95,7 +83,7 @@ const emit = defineEmits<{
 
 const localPrompt = ref(props.modelValue);
 
-const templates: Template[] = [
+const templates: PromptTemplate[] = [
   {
     id: 'summarize',
     name: 'Summarize',

@@ -1,29 +1,18 @@
 import { defineStore } from 'pinia';
 import { api } from 'boot/axios';
-
-export interface UploadedFile {
-  id: string;
-  filename: string;
-  size: number;
-  mimeType: string;
-  tokenCount?: number;
-}
-
-export interface AIModel {
-  id: string;
-  name: string;
-  contextWindow: number;
-  recommended?: boolean;
-  costPer1kTokens?: number;
-}
-
-export interface AIProvider {
-  type: 'local' | 'api' | 'remote';
-  available: boolean;
-  requiresApiKey?: boolean;
-  models: AIModel[];
-  baseUrl?: string;
-}
+import type {
+  AIProvider,
+  AIProviders,
+  ProviderOptions,
+  ApiError
+} from 'src/types/ai.types';
+import type { UploadedFile } from 'src/types/file.types';
+import type {
+  ProcessingMode,
+  OutputFormat,
+  AdditionalSettings,
+  ProcessingResult
+} from 'src/types/wizard.types';
 
 export interface WizardState {
   // Session
@@ -34,42 +23,31 @@ export interface WizardState {
   uploadedFiles: UploadedFile[];
 
   // Step 2: AI Configuration
-  providers: Record<string, AIProvider>;
+  providers: AIProviders;
   selectedProvider: string;
   selectedModel: string;
   apiKeys: Record<string, string>;
-  providerOptions: {
-    temperature: number;
-    maxTokens: number;
-    topP: number;
-  };
+  providerOptions: ProviderOptions;
 
   // Step 3: Prompt
   promptText: string;
   selectedTemplate: string | null;
 
   // Step 4: Processing Options
-  processingMode: 'standard' | 'high_precision' | 'quick_draft';
-  outputFormat: 'rich_text' | 'pdf' | 'plain_text';
-  additionalSettings: {
-    includeSourceReferences: boolean;
-    generateVisualizations: boolean;
-    enableFollowUpQuestions: boolean;
-  };
+  processingMode: ProcessingMode;
+  outputFormat: OutputFormat;
+  additionalSettings: AdditionalSettings;
 
   // Step 5: Results
-  result: {
-    id: string;
-    version: number;
-    content: string;
-    format: string;
-    status: string;
-  } | null;
+  result: ProcessingResult | null;
 
   // UI State
   isLoading: boolean;
   error: string | null;
 }
+
+// Re-export types for convenience
+export type { AIProvider, UploadedFile, ProviderOptions };
 
 export const useWizardStore = defineStore('wizard', {
   state: (): WizardState => ({
@@ -153,7 +131,7 @@ export const useWizardStore = defineStore('wizard', {
           this.selectedModel = response.data.data.defaultModel || 'llama3.1:8b';
         }
       } catch (error: unknown) {
-        const err = error as { response?: { data?: { error?: string } }; message?: string };
+        const err = error as ApiError;
         this.error = err.response?.data?.error || err.message || 'Failed to fetch models';
         console.error('Failed to fetch models:', error);
         // Load mock data for development
@@ -225,7 +203,7 @@ export const useWizardStore = defineStore('wizard', {
 
         return response.data.success;
       } catch (error: unknown) {
-        const err = error as { response?: { data?: { error?: string } }; message?: string };
+        const err = error as ApiError;
         this.error = err.response?.data?.error || err.message || 'Failed to configure model';
         console.error('Failed to configure model:', error);
         return false;
@@ -265,7 +243,7 @@ export const useWizardStore = defineStore('wizard', {
         }
         return false;
       } catch (error: unknown) {
-        const err = error as { response?: { data?: { error?: string } }; message?: string };
+        const err = error as ApiError;
         this.error = err.response?.data?.error || err.message || 'Failed to start processing';
         console.error('Failed to start processing:', error);
         return false;
@@ -295,7 +273,7 @@ export const useWizardStore = defineStore('wizard', {
           this.uploadedFiles = response.data.data.files;
         }
       } catch (error: unknown) {
-        const err = error as { response?: { data?: { error?: string } }; message?: string };
+        const err = error as ApiError;
         this.error = err.response?.data?.error || err.message || 'Failed to upload files';
         console.error('Failed to upload files:', error);
       } finally {

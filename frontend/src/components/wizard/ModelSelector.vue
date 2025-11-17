@@ -149,31 +149,10 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-
-interface AIModel {
-  id: string;
-  name: string;
-  contextWindow: number;
-  recommended?: boolean;
-  costPer1kTokens?: number;
-}
-
-interface AIProvider {
-  type: 'local' | 'api' | 'remote';
-  available: boolean;
-  requiresApiKey?: boolean;
-  models: AIModel[];
-  baseUrl?: string;
-}
-
-interface ProviderOptions {
-  temperature: number;
-  maxTokens: number;
-  topP: number;
-}
+import type { AIProvider, AIProviders, ProviderOptions } from 'src/types/ai.types';
 
 const props = defineProps<{
-  providers: Record<string, AIProvider>;
+  providers: AIProviders;
   selectedProvider: string;
   selectedModel: string;
   apiKeys: Record<string, string>;

@@ -125,26 +125,13 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-
-interface AdditionalSettings {
-  includeSourceReferences: boolean;
-  generateVisualizations: boolean;
-  enableFollowUpQuestions: boolean;
-}
-
-interface Summary {
-  files: string;
-  task: string;
-  mode: string;
-  format: string;
-  model: string;
-}
+import type { AdditionalSettings, ProcessingSummary } from 'src/types/wizard.types';
 
 const props = defineProps<{
   processingMode: string;
   outputFormat: string;
   additionalSettings: AdditionalSettings;
-  summary: Summary;
+  summary: ProcessingSummary;
 }>();
 
 const emit = defineEmits<{
