@@ -14,10 +14,7 @@ module.exports = {
     'plugin:vue/vue3-strongly-recommended',
     'prettier'
   ],
-  plugins: [
-    '@typescript-eslint',
-    'vue'
-  ],
+  plugins: ['@typescript-eslint', 'vue'],
   globals: {
     ga: 'readonly',
     cordova: 'readonly',
@@ -39,4 +36,4 @@ module.exports = {
     '@typescript-eslint/no-unused-vars': ['warn'],
     'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off'
   }
-}
+};

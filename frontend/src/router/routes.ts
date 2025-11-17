@@ -1,4 +1,4 @@
-import { RouteRecordRaw } from 'vue-router';
+import type { RouteRecordRaw } from 'vue-router';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -10,15 +10,14 @@ const routes: RouteRecordRaw[] = [
         name: 'home',
         component: () => import('pages/WizardPage.vue')
       }
-    ],
+    ]
   },
 
-  // Always leave this as last one,
-  // but you can also remove it
+  // Always leave this as last one
   {
     path: '/:catchAll(.*)*',
-    component: () => import('pages/ErrorNotFound.vue'),
-  },
+    component: () => import('pages/ErrorNotFound.vue')
+  }
 ];
 
 export default routes;

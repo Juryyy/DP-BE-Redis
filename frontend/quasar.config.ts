@@ -1,21 +1,15 @@
-/* eslint-env node */
+import { configure } from 'quasar/wrappers';
 
-const { configure } = require('quasar/wrappers');
-
-module.exports = configure(function (/* ctx */) {
+export default configure(() => {
   return {
     eslint: {
       warnings: true,
       errors: true
     },
 
-    boot: [
-      'axios'
-    ],
+    boot: ['axios'],
 
-    css: [
-      'app.scss'
-    ],
+    css: ['app.scss'],
 
     extras: [
       'roboto-font',
@@ -24,7 +18,7 @@ module.exports = configure(function (/* ctx */) {
 
     build: {
       target: {
-        browser: ['es2019', 'edge88', 'firefox78', 'chrome87', 'safari13.1'],
+        browser: ['es2022', 'firefox115', 'chrome115', 'safari14'],
         node: 'node20'
       },
 
@@ -68,13 +62,11 @@ module.exports = configure(function (/* ctx */) {
     ssr: {
       pwa: false,
       prodPort: 3000,
-      middlewares: [
-        'render'
-      ]
+      middlewares: ['render']
     },
 
     pwa: {
-      workboxMode: 'generateSW'
+      workboxMode: 'GenerateSW'
     },
 
     capacitor: {
@@ -84,6 +76,10 @@ module.exports = configure(function (/* ctx */) {
     electron: {
       inspectPort: 5858,
       bundler: 'packager'
+    },
+
+    bex: {
+      extraScripts: []
     }
-  }
+  };
 });
