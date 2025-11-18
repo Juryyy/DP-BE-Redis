@@ -15,10 +15,13 @@
   },
   "dependencies": {
     "@quasar/extras": "^1.16.4",
+    "@vue-office/docx": "^1.6.2",
+    "@vue-office/excel": "^1.7.11",
     "axios": "^1.7.0",
     "pinia": "^2.1.7",
     "quasar": "^2.16.0",
     "vue": "^3.4.18",
+    "vue-pdf-embed": "^2.1.0",
     "vue-router": "^4.0.12"
   },
   "devDependencies": {
