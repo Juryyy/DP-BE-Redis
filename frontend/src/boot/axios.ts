@@ -10,7 +10,7 @@ declare module '@vue/runtime-core' {
 
 // Create axios instance
 const api = axios.create({
-  baseURL: process.env.API_URL || 'http://localhost:3000/api/wizard',
+  baseURL: process.env.API_URL || 'http://localhost:3000',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'

@@ -106,19 +106,37 @@
     </q-card-section>
 
     <q-card-section v-if="currentProvider">
-      <div class="text-subtitle1 text-weight-medium q-mb-md">Select Model</div>
+      <div class="row items-center q-mb-md">
+        <div class="col">
+          <div class="text-subtitle1 text-weight-medium">Select Model(s)</div>
+          <div class="text-caption text-grey-7">You can select multiple models for comparison</div>
+        </div>
+        <div v-if="selectedModels.length > 1" class="col-auto">
+          <q-chip
+            outline
+            color="primary"
+            icon="workspaces"
+            :label="`${selectedModels.length} models selected`"
+          />
+        </div>
+      </div>
 
       <q-list bordered separator>
         <q-item
           v-for="model in currentProvider.models"
           :key="model.id"
           clickable
-          :active="selectedModel === model.id"
+          :active="selectedModels.includes(model.id)"
           active-class="bg-blue-1"
-          @click="onModelChange(model.id)"
+          @click="onModelToggle(model.id)"
         >
           <q-item-section avatar>
-            <q-radio :model-value="selectedModel" :val="model.id" />
+            <q-checkbox
+              :model-value="selectedModels.includes(model.id)"
+              color="primary"
+              @click.stop
+              @update:model-value="onModelToggle(model.id)"
+            />
           </q-item-section>
 
           <q-item-section>
@@ -128,6 +146,12 @@
                 v-if="model.recommended"
                 color="positive"
                 label="⭐ Recommended"
+                class="q-ml-sm"
+              />
+              <q-badge
+                v-if="selectedModels[0] === model.id && selectedModels.length > 1"
+                color="info"
+                label="Primary"
                 class="q-ml-sm"
               />
             </q-item-label>
@@ -146,6 +170,13 @@
           </q-item-section>
         </q-item>
       </q-list>
+
+      <q-banner v-if="selectedModels.length > 1" dense class="bg-info text-white q-mt-md">
+        <template #avatar>
+          <q-icon name="info" />
+        </template>
+        Multiple models selected. The system will compare results from all selected models.
+      </q-banner>
     </q-card-section>
 
     <q-expansion-item
@@ -233,6 +264,7 @@ const props = defineProps<{
   providers: AIProviders;
   selectedProvider: string;
   selectedModel: string;
+  selectedModels?: string[];
   apiKeys: Record<string, string>;
   options: ProviderOptions;
 }>();
@@ -240,6 +272,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:selectedProvider', value: string): void;
   (e: 'update:selectedModel', value: string): void;
+  (e: 'toggle-model', modelId: string): void;
   (e: 'update:apiKey', provider: string, key: string): void;
   (e: 'update:options', options: ProviderOptions): void;
   (e: 'refresh'): void;
@@ -247,6 +280,7 @@ const emit = defineEmits<{
 
 const selectedProvider = ref(props.selectedProvider);
 const selectedModel = ref(props.selectedModel);
+const selectedModels = ref<string[]>(props.selectedModels || []);
 const apiKey = ref(props.apiKeys[props.selectedProvider] || '');
 const localOptions = ref({ ...props.options });
 
@@ -257,6 +291,10 @@ watch(() => props.selectedProvider, (newVal) => {
 
 watch(() => props.selectedModel, (newVal) => {
   selectedModel.value = newVal;
+});
+
+watch(() => props.selectedModels, (newVal) => {
+  selectedModels.value = newVal || [];
 });
 
 watch(() => props.options, (newVal) => {
@@ -281,18 +319,21 @@ function formatNumber(num: number): string {
 function onProviderChange(value: string) {
   emit('update:selectedProvider', value);
   apiKey.value = props.apiKeys[value] || '';
+  selectedModels.value = [];
   // Auto-select first or recommended model
   const provider = props.providers[value];
   if (provider && provider.models.length > 0) {
     const recommended = provider.models.find(m => m.recommended);
     const newModel = recommended ? recommended.id : provider.models[0].id;
     selectedModel.value = newModel;
+    selectedModels.value = [newModel];
     emit('update:selectedModel', newModel);
+    emit('toggle-model', newModel);
   }
 }
 
-function onModelChange(value: string) {
-  emit('update:selectedModel', value);
+function onModelToggle(modelId: string) {
+  emit('toggle-model', modelId);
 }
 
 function onApiKeyChange(value: string | number | null) {

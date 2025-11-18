@@ -26,6 +26,7 @@ export interface WizardState {
   providers: AIProviders;
   selectedProvider: string;
   selectedModel: string;
+  selectedModels: string[]; // Support multiple model selection
   apiKeys: Record<string, string>;
   providerOptions: ProviderOptions;
 
@@ -58,7 +59,8 @@ export const useWizardStore = defineStore('wizard', {
 
     providers: {},
     selectedProvider: 'ollama',
-    selectedModel: 'llama3.1:8b',
+    selectedModel: '',
+    selectedModels: [],
     apiKeys: {},
     providerOptions: {
       temperature: 0.7,
@@ -97,7 +99,7 @@ export const useWizardStore = defineStore('wizard', {
         case 1:
           return state.uploadedFiles.length > 0;
         case 2:
-          return state.selectedProvider && state.selectedModel;
+          return state.selectedProvider && state.selectedModels.length > 0;
         case 3:
           return state.promptText.trim().length > 0;
         case 4:
@@ -142,19 +144,16 @@ export const useWizardStore = defineStore('wizard', {
     },
 
     loadMockProviders() {
+      // Only show providers with API keys configured or mark as unavailable
       this.providers = {
         ollama: {
           id: 'ollama',
           name: 'Ollama (Local)',
           description: 'Run AI models locally on your machine',
           type: 'local',
-          available: true,
+          available: false,
           requiresApiKey: false,
-          models: [
-            { id: 'llama3.1:8b', name: 'Llama 3.1 8B', contextWindow: 8192, recommended: true },
-            { id: 'llama3.1:70b', name: 'Llama 3.1 70B', contextWindow: 8192 },
-            { id: 'mistral:latest', name: 'Mistral', contextWindow: 8192 }
-          ],
+          models: [],
           baseUrl: 'http://localhost:11434'
         },
         openai: {
@@ -162,13 +161,11 @@ export const useWizardStore = defineStore('wizard', {
           name: 'OpenAI',
           description: 'Access GPT models from OpenAI',
           type: 'api',
-          available: true,
+          available: false,
           requiresApiKey: true,
           models: [
             { id: 'gpt-4o', name: 'GPT-4 Omni', contextWindow: 128000, costPer1kTokens: 0.005, recommended: true },
-            { id: 'gpt-4o-mini', name: 'GPT-4 Omni Mini', contextWindow: 128000, costPer1kTokens: 0.00015 },
-            { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', contextWindow: 128000, costPer1kTokens: 0.01 },
-            { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', contextWindow: 16385, costPer1kTokens: 0.0005 }
+            { id: 'gpt-4o-mini', name: 'GPT-4 Omni Mini', contextWindow: 128000, costPer1kTokens: 0.00015 }
           ]
         },
         anthropic: {
@@ -176,11 +173,10 @@ export const useWizardStore = defineStore('wizard', {
           name: 'Anthropic',
           description: 'Access Claude models from Anthropic',
           type: 'api',
-          available: true,
+          available: false,
           requiresApiKey: true,
           models: [
             { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindow: 200000, costPer1kTokens: 0.003, recommended: true },
-            { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', contextWindow: 200000, costPer1kTokens: 0.015 },
             { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku', contextWindow: 200000, costPer1kTokens: 0.00025 }
           ]
         },
@@ -197,8 +193,18 @@ export const useWizardStore = defineStore('wizard', {
           ]
         }
       };
-      this.selectedProvider = 'ollama';
-      this.selectedModel = 'llama3.1:8b';
+
+      // Try to find first available provider
+      const firstAvailable = Object.entries(this.providers).find(([_, p]) => p.available);
+      if (firstAvailable) {
+        this.selectedProvider = firstAvailable[0];
+        if (firstAvailable[1].models.length > 0) {
+          const recommended = firstAvailable[1].models.find(m => m.recommended);
+          const firstModel = recommended?.id || firstAvailable[1].models[0].id;
+          this.selectedModel = firstModel;
+          this.selectedModels = [firstModel];
+        }
+      }
     },
 
     async configureModel() {
@@ -306,14 +312,40 @@ export const useWizardStore = defineStore('wizard', {
     setProvider(providerId: string) {
       this.selectedProvider = providerId;
       const provider = this.providers[providerId];
+      // Clear selected models when switching providers
+      this.selectedModels = [];
+      this.selectedModel = '';
       if (provider && provider.models.length > 0) {
         const recommended = provider.models.find(m => m.recommended);
-        this.selectedModel = recommended ? recommended.id : provider.models[0].id;
+        const firstModel = recommended ? recommended.id : provider.models[0].id;
+        this.selectedModel = firstModel;
+        this.selectedModels = [firstModel];
       }
     },
 
     setModel(modelId: string) {
       this.selectedModel = modelId;
+      // For backwards compatibility, also set as the only selected model
+      this.selectedModels = [modelId];
+    },
+
+    toggleModel(modelId: string) {
+      const index = this.selectedModels.indexOf(modelId);
+      if (index > -1) {
+        // Remove model if already selected
+        this.selectedModels.splice(index, 1);
+        // Update primary selected model
+        if (this.selectedModel === modelId) {
+          this.selectedModel = this.selectedModels[0] || '';
+        }
+      } else {
+        // Add model to selection
+        this.selectedModels.push(modelId);
+        // Set as primary if it's the first one
+        if (this.selectedModels.length === 1) {
+          this.selectedModel = modelId;
+        }
+      }
     },
 
     setApiKey(provider: string, apiKey: string) {
