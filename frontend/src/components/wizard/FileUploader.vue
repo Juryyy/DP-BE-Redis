@@ -166,7 +166,7 @@
     </div>
 
     <!-- Empty State -->
-    <div v-if="uploadedFiles.length === 0 && !isUploading" class="empty-state">
+    <div v-if="uploadedFiles.length === 0 && selectedFiles.length === 0 && !isUploading" class="empty-state">
       <q-icon name="info_outline" color="primary" size="md" />
       <p class="empty-text">No files uploaded yet. Drop files above or click the upload area.</p>
     </div>
@@ -174,7 +174,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import { api } from 'boot/axios';
 import type { UploadedFile, FileUploadEvent } from 'src/types/file.types';
@@ -183,6 +183,11 @@ const props = defineProps<{
   uploadedFiles: UploadedFile[];
   sessionId: string | null;
 }>();
+
+// Debug: watch uploadedFiles prop
+watch(() => props.uploadedFiles, (newFiles) => {
+  console.log('FileUploader: uploadedFiles prop changed:', newFiles);
+}, { deep: true });
 
 const emit = defineEmits<{
   (e: 'upload-success', data: FileUploadEvent): void;
@@ -341,6 +346,8 @@ async function uploadFiles() {
     });
 
     if (response.data.success) {
+      console.log('Upload success! Files:', response.data.data.files);
+
       emit('upload-success', {
         sessionId: response.data.data.sessionId,
         files: response.data.data.files

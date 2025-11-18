@@ -253,8 +253,10 @@ const processingSummary = computed(() => ({
 }));
 
 function handleUploadSuccess(event: FileUploadEvent) {
+  console.log('WizardPage handleUploadSuccess called with:', event);
   wizardStore.setSessionId(event.sessionId);
   wizardStore.setUploadedFiles(event.files);
+  console.log('Store uploadedFiles after setting:', wizardStore.uploadedFiles);
 }
 
 function handleUploadFailed(error: string) {
