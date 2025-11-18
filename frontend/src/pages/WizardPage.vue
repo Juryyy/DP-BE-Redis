@@ -4,16 +4,12 @@
     <div class="gradient-background"></div>
 
     <div class="wizard-container">
-      <!-- Header with modern design -->
+      <!-- Header -->
       <div class="wizard-header">
-        <div class="header-content">
-          <q-icon name="auto_awesome" size="48px" class="header-icon" />
-          <h1 class="header-title">AI Document Processing</h1>
-          <p class="header-subtitle">Transform your documents with the power of AI</p>
-        </div>
+        <h4 class="header-title">AI Document Processing</h4>
       </div>
 
-      <!-- Main wizard card with glassmorphism effect -->
+      <!-- Main wizard card -->
       <q-card class="wizard-card">
         <WizardStepper
           :current-step="wizardStore.currentStep"
@@ -347,66 +343,26 @@ function formatDuration(ms: number): string {
   z-index: 1;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 1.5rem 1rem;
 }
 
 .wizard-header {
   text-align: center;
-  margin-bottom: 2rem;
-}
-
-.header-content {
-  animation: fadeInDown 0.8s ease;
-}
-
-.header-icon {
-  color: #1e40af;
-  filter: drop-shadow(0 2px 8px rgba(30, 64, 175, 0.2));
+  margin-bottom: 1.5rem;
 }
 
 .header-title {
-  color: #1e3a8a;
-  font-size: 2.5rem;
+  color: #374151;
+  font-size: 1.5rem;
   font-weight: 600;
-  margin: 1rem 0 0.5rem;
-  letter-spacing: -0.5px;
-}
-
-.header-subtitle {
-  color: #6b7280;
-  font-size: 1.125rem;
-  font-weight: 400;
   margin: 0;
-}
-
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .wizard-card {
   background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
-  animation: fadeInUp 0.8s ease;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   border: 1px solid #e5e7eb;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* Error Dialog Styles */
@@ -683,16 +639,16 @@ function formatDuration(ms: number): string {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .header-title {
-    font-size: 2rem;
+  .wizard-container {
+    padding: 1rem 0.75rem;
   }
 
-  .header-subtitle {
-    font-size: 1rem;
+  .header-title {
+    font-size: 1.25rem;
   }
 
   .results-title {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
   }
 
   .summary-grid {

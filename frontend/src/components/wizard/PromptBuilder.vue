@@ -414,36 +414,41 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 
   h6 {
-    font-size: 1.25rem;
+    font-size: 0.95rem;
     color: #374151;
+    font-weight: 600;
   }
 }
 
 .add-prompt-btn {
-  font-weight: 600;
-  padding: 0.5rem 1.5rem;
+  font-weight: 500;
+  padding: 0.4rem 1rem;
+  font-size: 0.875rem;
 }
 
 .no-prompts {
   border: 2px dashed #cbd5e0;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  border-radius: 8px;
+  background: #fafafa;
+  padding: 2rem 1.5rem;
 }
 
 .prompts-list {
   .prompt-item {
-    border: 2px solid #e2e8f0;
-    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
     overflow: hidden;
     background: white;
-    transition: all 0.3s ease;
+    margin-bottom: 0.75rem;
+    transition: all 0.2s ease;
 
     &:hover {
       border-color: #3b82f6;
-      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+      box-shadow: 0 2px 6px rgba(59, 130, 246, 0.1);
     }
   }
 }
@@ -454,20 +459,21 @@ defineExpose({
 }
 
 .target-chip {
-  font-weight: 600;
-  font-size: 0.75rem;
+  font-weight: 500;
+  font-size: 0.7rem;
 }
 
 .template-card {
   transition: all 0.2s ease;
-  border: 2px solid #e2e8f0;
+  border: 1px solid #e5e7eb;
   background: white;
+  border-radius: 6px;
 
   &:hover {
     border-color: #3b82f6;
-    background: #f0f9ff;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.15);
+    background: #f7fafc;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(59, 130, 246, 0.12);
   }
 
   &:active {
