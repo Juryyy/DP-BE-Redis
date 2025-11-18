@@ -25,13 +25,9 @@
         <template #step2>
           <ModelSelector
             :providers="wizardStore.providers"
-            :selected-provider="wizardStore.selectedProvider"
-            :selected-model="wizardStore.selectedModel"
             :selected-models="wizardStore.selectedModels"
             :api-keys="wizardStore.apiKeys"
             :options="wizardStore.providerOptions"
-            @update:selected-provider="wizardStore.setProvider"
-            @update:selected-model="wizardStore.setModel"
             @toggle-model="wizardStore.toggleModel"
             @update:api-key="wizardStore.setApiKey"
             @update:options="handleOptionsUpdate"
@@ -77,6 +73,97 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <!-- Results Dialog -->
+    <q-dialog v-model="showResults" full-width full-height>
+      <q-card>
+        <q-card-section class="row items-center bg-primary text-white">
+          <q-icon name="check_circle" size="md" class="q-mr-md" />
+          <div class="text-h6">Processing Results</div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+
+        <q-card-section v-if="wizardStore.result" class="q-pa-md">
+          <div v-if="wizardStore.result.results && wizardStore.result.results.length > 0">
+            <div v-for="(modelResult, idx) in wizardStore.result.results" :key="idx" class="q-mb-lg">
+              <q-card bordered>
+                <q-card-section class="bg-grey-1">
+                  <div class="row items-center">
+                    <q-icon :name="getProviderIcon(modelResult.provider)" size="sm" class="q-mr-sm" />
+                    <div class="text-subtitle1 text-weight-medium">
+                      {{ getProviderLabel(modelResult.provider) }}: {{ modelResult.modelName }}
+                    </div>
+                    <q-space />
+                    <q-badge
+                      :color="modelResult.success ? 'positive' : 'negative'"
+                      :label="modelResult.success ? 'Success' : 'Failed'"
+                    />
+                  </div>
+                </q-card-section>
+
+                <q-card-section v-if="modelResult.success">
+                  <div class="text-body1" style="white-space: pre-wrap">{{ modelResult.response }}</div>
+                  <q-separator class="q-my-md" />
+                  <div class="text-caption text-grey">
+                    <q-icon name="schedule" size="xs" class="q-mr-xs" />
+                    Completed in {{ modelResult.duration }}ms
+                  </div>
+                </q-card-section>
+
+                <q-card-section v-else>
+                  <q-banner class="bg-negative text-white">
+                    <template #avatar>
+                      <q-icon name="error" />
+                    </template>
+                    {{ modelResult.error || 'Unknown error occurred' }}
+                  </q-banner>
+                </q-card-section>
+              </q-card>
+            </div>
+          </div>
+
+          <q-banner v-else class="bg-warning">
+            <template #avatar>
+              <q-icon name="warning" />
+            </template>
+            No results available
+          </q-banner>
+
+          <!-- Summary -->
+          <q-card bordered class="q-mt-md" v-if="wizardStore.result.summary">
+            <q-card-section class="bg-info text-white">
+              <div class="text-subtitle1">Summary</div>
+            </q-card-section>
+            <q-card-section>
+              <div class="row q-col-gutter-md">
+                <div class="col-6 col-md-3">
+                  <div class="text-caption text-grey">Total Duration</div>
+                  <div class="text-h6">{{ wizardStore.result.summary.totalDuration }}ms</div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="text-caption text-grey">Successful</div>
+                  <div class="text-h6 text-positive">{{ wizardStore.result.summary.successCount }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="text-caption text-grey">Failed</div>
+                  <div class="text-h6 text-negative">{{ wizardStore.result.summary.failureCount }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="text-caption text-grey">Total Models</div>
+                  <div class="text-h6">{{ wizardStore.result.summary.totalModels }}</div>
+                </div>
+              </div>
+            </q-card-section>
+          </q-card>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn label="Close" color="primary" v-close-popup />
+          <q-btn label="Start New" color="secondary" @click="resetWizard" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -99,6 +186,11 @@ const wizardStore = useWizardStore();
 const showError = computed({
   get: () => !!wizardStore.error,
   set: () => { wizardStore.error = null; }
+});
+
+const showResults = computed({
+  get: () => !!wizardStore.result,
+  set: () => { wizardStore.result = null; }
 });
 
 const processingSummary = computed(() => ({
@@ -168,6 +260,30 @@ function formatOutputFormat(format: string): string {
     plain_text: 'Plain Text'
   };
   return formats[format] || format;
+}
+
+function getProviderIcon(provider: string): string {
+  if (provider === 'ollama' || provider === 'ollamaRemote') return 'computer';
+  if (provider === 'openai') return 'psychology';
+  if (provider === 'anthropic') return 'smart_toy';
+  if (provider === 'gemini') return 'stars';
+  return 'api';
+}
+
+function getProviderLabel(provider: string): string {
+  const labels: Record<string, string> = {
+    ollama: 'Ollama (Local)',
+    ollamaRemote: 'Ollama (Remote)',
+    openai: 'OpenAI',
+    anthropic: 'Anthropic',
+    gemini: 'Google Gemini'
+  };
+  return labels[provider] || provider;
+}
+
+function resetWizard() {
+  wizardStore.resetWizard();
+  showResults.value = false;
 }
 </script>
 

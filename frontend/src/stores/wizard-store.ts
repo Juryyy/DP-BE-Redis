@@ -26,7 +26,7 @@ export interface WizardState {
   providers: AIProviders;
   selectedProvider: string;
   selectedModel: string;
-  selectedModels: string[]; // Support multiple model selection
+  selectedModels: Array<{ provider: string; modelId: string }>; // Support multi-provider selection
   apiKeys: Record<string, string>;
   providerOptions: ProviderOptions;
 
@@ -99,7 +99,7 @@ export const useWizardStore = defineStore('wizard', {
         case 1:
           return state.uploadedFiles.length > 0;
         case 2:
-          return state.selectedProvider && state.selectedModels.length > 0;
+          return state.selectedModels.length > 0;
         case 3:
           return state.promptText.trim().length > 0;
         case 4:
@@ -246,17 +246,17 @@ export const useWizardStore = defineStore('wizard', {
       this.error = null;
 
       try {
-        // Build model configurations for multi-model execution
-        const models = this.selectedModels.map(modelId => {
-          const provider = this.providers[this.selectedProvider];
-          const model = provider?.models.find(m => m.id === modelId);
+        // Build model configurations for multi-model, multi-provider execution
+        const models = this.selectedModels.map(({ provider, modelId }) => {
+          const providerData = this.providers[provider];
+          const model = providerData?.models.find(m => m.id === modelId);
           return {
-            provider: this.selectedProvider,
+            provider: provider,
             modelName: modelId,
             temperature: this.providerOptions.temperature,
             maxTokens: this.providerOptions.maxTokens,
             topP: this.providerOptions.topP,
-            apiKey: this.apiKeys[this.selectedProvider]
+            apiKey: this.apiKeys[provider]
           };
         });
 
@@ -317,41 +317,41 @@ export const useWizardStore = defineStore('wizard', {
 
     setProvider(providerId: string) {
       this.selectedProvider = providerId;
-      const provider = this.providers[providerId];
-      // Clear selected models when switching providers
-      this.selectedModels = [];
-      this.selectedModel = '';
-      if (provider && provider.models.length > 0) {
-        const recommended = provider.models.find(m => m.recommended);
-        const firstModel = recommended ? recommended.id : provider.models[0].id;
-        this.selectedModel = firstModel;
-        this.selectedModels = [firstModel];
-      }
+      // Don't clear selected models - allow multi-provider selection
     },
 
     setModel(modelId: string) {
       this.selectedModel = modelId;
-      // For backwards compatibility, also set as the only selected model
-      this.selectedModels = [modelId];
+      // For backwards compatibility, update selected models
+      const existing = this.selectedModels.find(m => m.provider === this.selectedProvider);
+      if (existing) {
+        existing.modelId = modelId;
+      } else {
+        this.selectedModels = [{ provider: this.selectedProvider, modelId }];
+      }
     },
 
-    toggleModel(modelId: string) {
-      const index = this.selectedModels.indexOf(modelId);
+    toggleModel(provider: string, modelId: string) {
+      const index = this.selectedModels.findIndex(
+        m => m.provider === provider && m.modelId === modelId
+      );
+
       if (index > -1) {
         // Remove model if already selected
         this.selectedModels.splice(index, 1);
-        // Update primary selected model
-        if (this.selectedModel === modelId) {
-          this.selectedModel = this.selectedModels[0] || '';
-        }
       } else {
         // Add model to selection
-        this.selectedModels.push(modelId);
-        // Set as primary if it's the first one
-        if (this.selectedModels.length === 1) {
-          this.selectedModel = modelId;
-        }
+        this.selectedModels.push({ provider, modelId });
       }
+
+      // Update primary selected model if needed
+      if (this.selectedModels.length > 0 && this.selectedProvider === provider) {
+        this.selectedModel = this.selectedModels.find(m => m.provider === provider)?.modelId || '';
+      }
+    },
+
+    isModelSelected(provider: string, modelId: string): boolean {
+      return this.selectedModels.some(m => m.provider === provider && m.modelId === modelId);
     },
 
     setApiKey(provider: string, apiKey: string) {
