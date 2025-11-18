@@ -59,6 +59,7 @@ export class UploadController {
           filename: file.originalname,
           size: file.size,
           mimeType: file.mimetype,
+          url: `/api/wizard/files/${savedFile.id}`,
           tokenCount: tokenEstimate.tokenCount,
           sections: parsed.sections,
           tables: parsed.tables,
