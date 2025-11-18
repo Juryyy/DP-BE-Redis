@@ -25,13 +25,19 @@ export default configure(() => {
       vueRouterMode: 'history',
 
       env: {
-        API_URL: process.env.API_URL || 'http://localhost:3000/api/wizard'
+        API_URL: process.env.API_URL || 'http://localhost:3000'
       }
     },
 
     devServer: {
       open: false,
-      port: 9000
+      port: 9000,
+      proxy: {
+        '/api': {
+          target: 'http://localhost:3000',
+          changeOrigin: true
+        }
+      }
     },
 
     framework: {
