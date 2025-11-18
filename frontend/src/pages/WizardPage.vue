@@ -48,12 +48,7 @@
           </template>
 
           <template #step3>
-            <PromptInput
-              v-model="wizardStore.promptText"
-              :selected-template="wizardStore.selectedTemplate"
-              :files="wizardStore.uploadedFiles"
-              @update:selected-template="(val) => wizardStore.selectedTemplate = val"
-            />
+            <PromptBuilder ref="promptBuilderRef" />
           </template>
 
           <template #step4>
@@ -220,17 +215,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useWizardStore } from 'stores/wizard-store';
 import WizardStepper from 'components/wizard/WizardStepper.vue';
 import FileUploader from 'components/wizard/FileUploader.vue';
 import ModelSelector from 'components/wizard/ModelSelector.vue';
-import PromptInput from 'components/wizard/PromptInput.vue';
+import PromptBuilder from 'components/wizard/PromptBuilder.vue';
 import ProcessingOptions from 'components/wizard/ProcessingOptions.vue';
 import type { ProviderOptions, AdditionalSettings } from 'src/types/ai.types';
 import type { FileUploadEvent } from 'src/types/file.types';
 
 const wizardStore = useWizardStore();
+const promptBuilderRef = ref<InstanceType<typeof PromptBuilder> | null>(null);
 
 const showError = computed({
   get: () => !!wizardStore.error,
@@ -244,7 +240,9 @@ const showResults = computed({
 
 const processingSummary = computed(() => ({
   files: `${wizardStore.uploadedFiles.length} file(s)`,
-  task: wizardStore.promptText ? 'Custom prompt' : 'Not set',
+  task: promptBuilderRef.value?.prompts.length
+    ? `${promptBuilderRef.value.prompts.length} prompt(s) configured`
+    : 'No prompts yet',
   mode: wizardStore.processingMode,
   format: wizardStore.outputFormat,
   model: wizardStore.selectedModels.length > 0
@@ -272,7 +270,22 @@ function handleSettingsUpdate(settings: AdditionalSettings) {
 }
 
 async function handleStartProcessing() {
-  await wizardStore.startProcessing();
+  // Validate prompts
+  if (!promptBuilderRef.value) {
+    wizardStore.error = 'Prompt builder not initialized';
+    return;
+  }
+
+  if (!promptBuilderRef.value.validate()) {
+    wizardStore.error = 'Please ensure all prompts are properly configured';
+    return;
+  }
+
+  // Get prompts from builder
+  const prompts = promptBuilderRef.value.getPrompts();
+
+  // Start processing with prompts
+  await wizardStore.startProcessing(prompts);
 }
 
 function getProviderIcon(provider: string): string {

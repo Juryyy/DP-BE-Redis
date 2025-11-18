@@ -12,7 +12,8 @@ import type {
   OutputFormat,
   AdditionalSettings,
   ProcessingResult,
-  MultiModelResponse
+  MultiModelResponse,
+  PromptInput
 } from 'src/types/wizard.types';
 
 export interface WizardState {
@@ -100,9 +101,9 @@ export const useWizardStore = defineStore('wizard', {
         case 1:
           return state.uploadedFiles.length > 0;
         case 2:
-          return state.selectedModels.length > 0;
+          return true; // Model selection is optional
         case 3:
-          return state.promptText.trim().length > 0;
+          return true; // Prompt validation happens in WizardPage
         case 4:
           return true;
         default:
@@ -237,9 +238,14 @@ export const useWizardStore = defineStore('wizard', {
       }
     },
 
-    async startProcessing() {
+    async startProcessing(prompts: PromptInput[]) {
       if (!this.sessionId) {
         this.error = 'No session available';
+        return false;
+      }
+
+      if (prompts.length === 0) {
+        this.error = 'No prompts provided';
         return false;
       }
 
@@ -247,31 +253,50 @@ export const useWizardStore = defineStore('wizard', {
       this.error = null;
 
       try {
-        // Build model configurations for multi-model, multi-provider execution
-        const models = this.selectedModels.map(({ provider, modelId }) => {
-          const providerData = this.providers[provider];
-          const model = providerData?.models.find(m => m.id === modelId);
-          return {
-            provider: provider,
-            modelName: modelId,
-            temperature: this.providerOptions.temperature,
-            maxTokens: this.providerOptions.maxTokens,
-            topP: this.providerOptions.topP,
-            apiKey: this.apiKeys[provider]
+        // Submit prompts first
+        const promptsResponse = await api.post('/api/wizard/prompts', {
+          sessionId: this.sessionId,
+          prompts
+        });
+
+        if (!promptsResponse.data.success) {
+          throw new Error(promptsResponse.data.error || 'Failed to submit prompts');
+        }
+
+        // If models are selected, execute with multi-model API
+        if (this.selectedModels.length > 0) {
+          const models = this.selectedModels.map(({ provider, modelId }) => {
+            return {
+              provider: provider,
+              modelName: modelId,
+              temperature: this.providerOptions.temperature,
+              maxTokens: this.providerOptions.maxTokens,
+              topP: this.providerOptions.topP,
+              apiKey: this.apiKeys[provider]
+            };
+          });
+
+          const response = await api.post('/api/wizard/multi-model/execute', {
+            prompt: prompts[0].content, // Use first prompt as main prompt for multi-model
+            models,
+            sessionId: this.sessionId
+          });
+
+          if (response.data.success) {
+            this.result = response.data.data;
+            return true;
+          }
+        } else {
+          // No models selected, just submitted prompts - backend will use default
+          this.result = {
+            results: [],
+            totalDuration: 0,
+            successCount: 0,
+            failureCount: 0
           };
-        });
-
-        // Execute with multi-model API
-        const response = await api.post('/api/wizard/multi-model/execute', {
-          prompt: this.promptText,
-          models,
-          sessionId: this.sessionId
-        });
-
-        if (response.data.success) {
-          this.result = response.data.data;
           return true;
         }
+
         return false;
       } catch (error: unknown) {
         const err = error as ApiError;

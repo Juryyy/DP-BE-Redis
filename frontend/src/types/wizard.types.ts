@@ -8,6 +8,20 @@ export type OutputFormat = 'rich_text' | 'pdf' | 'plain_text';
 
 export type TargetType = 'FILE_SPECIFIC' | 'LINE_SPECIFIC' | 'SECTION_SPECIFIC' | 'GLOBAL';
 
+export interface LineRange {
+  start: number;
+  end: number;
+}
+
+export interface PromptInput {
+  content: string;
+  priority: number;
+  targetType: TargetType;
+  targetFileId?: string;
+  targetSection?: string;
+  targetLines?: LineRange;
+}
+
 export interface PromptTemplate {
   id: string;
   name: string;
@@ -32,17 +46,7 @@ export interface ProcessingSummary {
 
 export interface PromptRequest {
   sessionId: string;
-  prompts: Array<{
-    content: string;
-    priority: number;
-    targetType: TargetType;
-    targetFileId?: string;
-    targetSection?: string;
-    targetLines?: {
-      start: number;
-      end: number;
-    };
-  }>;
+  prompts: PromptInput[];
 }
 
 export interface PromptResponse {
