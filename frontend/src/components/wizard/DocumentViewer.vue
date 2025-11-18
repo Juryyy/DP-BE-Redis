@@ -17,7 +17,7 @@
     <div v-else class="viewer-content">
       <!-- PDF Viewer -->
       <div v-if="fileType === 'pdf'" class="pdf-viewer">
-        <div v-if="!compact" class="viewer-toolbar q-pa-sm bg-grey-2 row items-center justify-between">
+        <div class="viewer-toolbar q-pa-sm bg-grey-2 row items-center justify-between">
           <div class="row items-center q-gutter-sm">
             <q-btn
               flat
@@ -71,7 +71,7 @@
             />
           </div>
 
-          <div v-if="!compact && pdfNumPages && pdfNumPages > 1" class="pdf-pagination q-mt-md text-center">
+          <div v-if="pdfNumPages && pdfNumPages > 1" class="pdf-pagination q-mt-md text-center">
             <q-btn
               flat
               icon="chevron_left"
@@ -90,6 +90,7 @@
               class="page-input q-mx-md"
               style="width: 80px; display: inline-block"
             />
+            <span class="text-grey-7 q-mx-sm">of {{ pdfNumPages }}</span>
             <q-btn
               flat
               icon-right="chevron_right"
@@ -211,7 +212,7 @@ const textContent = ref<string>('');
 const pdfNumPages = ref<number>(0);
 const currentPage = ref(1);
 const scale = ref(1);
-const baseWidth = ref(800); // Base PDF width
+const containerWidth = ref(0); // Dynamic container width
 
 // Refs
 const pdfContainerRef = ref<HTMLElement>();
@@ -267,7 +268,10 @@ const fileType = computed(() => {
 });
 
 const pdfWidth = computed(() => {
-  return baseWidth.value * scale.value;
+  // Use A4 width at 96 DPI (595px) or container width, whichever is larger
+  const a4Width = 595;
+  const width = containerWidth.value > 0 ? Math.max(a4Width, containerWidth.value - 100) : a4Width;
+  return width * scale.value;
 });
 
 // Methods
@@ -393,14 +397,27 @@ watch(currentPage, (newPage) => {
   emit('page-changed', newPage);
 });
 
+// Update container width
+function updateContainerWidth() {
+  if (pdfContainerRef.value) {
+    containerWidth.value = pdfContainerRef.value.clientWidth;
+  }
+}
+
 // Lifecycle
 onMounted(() => {
   loadDocument();
-});
 
-// Cleanup
-onMounted(() => {
+  // Update container width after a short delay to ensure rendering
+  setTimeout(updateContainerWidth, 100);
+
+  // Add resize listener
+  window.addEventListener('resize', updateContainerWidth);
+
   return () => {
+    // Remove resize listener
+    window.removeEventListener('resize', updateContainerWidth);
+
     // Revoke object URL on cleanup
     if (documentUrl.value && documentUrl.value.startsWith('blob:')) {
       URL.revokeObjectURL(documentUrl.value);
@@ -544,10 +561,11 @@ onMounted(() => {
   padding: 1rem;
   background: white;
   transition: transform 0.2s ease;
+  display: flex;
+  justify-content: center;
 
   :deep(.vue-office-docx) {
     width: 100%;
-    max-width: 800px;
     margin: 0 auto;
     background: white;
     padding: 2rem;

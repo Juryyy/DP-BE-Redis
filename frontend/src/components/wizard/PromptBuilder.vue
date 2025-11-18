@@ -486,14 +486,15 @@ defineExpose({
 
 .split-view {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1.2fr;
   gap: 1.5rem;
   height: 100%;
-  min-height: 600px;
+  min-height: 750px;
 
   @media (max-width: 1200px) {
     grid-template-columns: 1fr;
     gap: 1rem;
+    min-height: 600px;
   }
 }
 
