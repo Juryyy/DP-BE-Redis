@@ -215,7 +215,7 @@ function formatNumber(num: number): string {
   border: 1px solid #bfdbfe;
 
   :deep(.q-banner__content) {
-    font-size: 0.875rem;
+    font-size: 0.9rem;
   }
 }
 
@@ -238,6 +238,14 @@ function formatNumber(num: number): string {
   :deep(.q-item) {
     padding: 0.75rem 1rem;
     min-height: auto;
+  }
+
+  :deep(.q-item-label) {
+    font-size: 0.9rem;
+  }
+
+  :deep(.q-item-label--caption) {
+    font-size: 0.8rem;
   }
 
   :deep(.q-expansion-item__container) {
@@ -272,14 +280,14 @@ function formatNumber(num: number): string {
 }
 
 .model-label {
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 500;
   display: flex;
   align-items: center;
 }
 
 .model-caption {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   margin-top: 0.125rem;
 }
 
@@ -288,6 +296,7 @@ function formatNumber(num: number): string {
   align-items: center;
   gap: 0.25rem;
   color: #6b7280;
+  font-size: 0.8rem;
 }
 
 .no-providers {
