@@ -96,14 +96,14 @@
                     </div>
                     <q-space />
                     <q-badge
-                      :color="modelResult.success ? 'positive' : 'negative'"
-                      :label="modelResult.success ? 'Success' : 'Failed'"
+                      :color="modelResult.status === 'completed' ? 'positive' : 'negative'"
+                      :label="modelResult.status === 'completed' ? 'Success' : 'Failed'"
                     />
                   </div>
                 </q-card-section>
 
-                <q-card-section v-if="modelResult.success">
-                  <div class="text-body1" style="white-space: pre-wrap">{{ modelResult.response }}</div>
+                <q-card-section v-if="modelResult.status === 'completed'">
+                  <div class="text-body1" style="white-space: pre-wrap">{{ modelResult.result }}</div>
                   <q-separator class="q-my-md" />
                   <div class="text-caption text-grey">
                     <q-icon name="schedule" size="xs" class="q-mr-xs" />
@@ -131,7 +131,7 @@
           </q-banner>
 
           <!-- Summary -->
-          <q-card bordered class="q-mt-md" v-if="wizardStore.result.summary">
+          <q-card bordered class="q-mt-md">
             <q-card-section class="bg-info text-white">
               <div class="text-subtitle1">Summary</div>
             </q-card-section>
@@ -139,19 +139,19 @@
               <div class="row q-col-gutter-md">
                 <div class="col-6 col-md-3">
                   <div class="text-caption text-grey">Total Duration</div>
-                  <div class="text-h6">{{ wizardStore.result.summary.totalDuration }}ms</div>
+                  <div class="text-h6">{{ wizardStore.result.totalDuration }}ms</div>
                 </div>
                 <div class="col-6 col-md-3">
                   <div class="text-caption text-grey">Successful</div>
-                  <div class="text-h6 text-positive">{{ wizardStore.result.summary.successCount }}</div>
+                  <div class="text-h6 text-positive">{{ wizardStore.result.successCount }}</div>
                 </div>
                 <div class="col-6 col-md-3">
                   <div class="text-caption text-grey">Failed</div>
-                  <div class="text-h6 text-negative">{{ wizardStore.result.summary.failureCount }}</div>
+                  <div class="text-h6 text-negative">{{ wizardStore.result.failureCount }}</div>
                 </div>
                 <div class="col-6 col-md-3">
                   <div class="text-caption text-grey">Total Models</div>
-                  <div class="text-h6">{{ wizardStore.result.summary.totalModels }}</div>
+                  <div class="text-h6">{{ wizardStore.result.results.length }}</div>
                 </div>
               </div>
             </q-card-section>

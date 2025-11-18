@@ -87,3 +87,31 @@ export interface SessionStatus {
   hasResult: boolean;
   result: ProcessingResult | null;
 }
+
+/**
+ * Multi-model execution types
+ */
+export interface MultiModelResult {
+  modelName: string;
+  provider: string;
+  duration: number; // milliseconds
+  result: string;
+  status: 'completed' | 'failed';
+  error?: string;
+  tokensUsed?: number;
+  timestamp: string;
+}
+
+export interface MultiModelResponse {
+  results: MultiModelResult[];
+  totalDuration: number;
+  successCount: number;
+  failureCount: number;
+  combinedResult?: string;
+  summary?: {
+    totalDuration: number;
+    successCount: number;
+    failureCount: number;
+    totalModels: number;
+  };
+}

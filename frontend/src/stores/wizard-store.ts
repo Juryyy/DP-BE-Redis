@@ -11,7 +11,8 @@ import type {
   ProcessingMode,
   OutputFormat,
   AdditionalSettings,
-  ProcessingResult
+  ProcessingResult,
+  MultiModelResponse
 } from 'src/types/wizard.types';
 
 export interface WizardState {
@@ -40,7 +41,7 @@ export interface WizardState {
   additionalSettings: AdditionalSettings;
 
   // Step 5: Results
-  result: ProcessingResult | null;
+  result: MultiModelResponse | null;
 
   // UI State
   isLoading: boolean;
