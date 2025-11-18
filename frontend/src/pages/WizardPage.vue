@@ -325,12 +325,7 @@ function formatDuration(ms: number): string {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg,
-    #667eea 0%,
-    #764ba2 25%,
-    #f093fb 50%,
-    #4facfe 75%,
-    #00f2fe 100%);
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f9fafb 100%);
   z-index: 0;
 }
 
@@ -352,29 +347,22 @@ function formatDuration(ms: number): string {
 }
 
 .header-icon {
-  color: white;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
-  animation: pulse 2s ease infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+  color: #1e40af;
+  filter: drop-shadow(0 2px 8px rgba(30, 64, 175, 0.2));
 }
 
 .header-title {
-  color: white;
-  font-size: 3rem;
-  font-weight: 700;
+  color: #1e3a8a;
+  font-size: 2.5rem;
+  font-weight: 600;
   margin: 1rem 0 0.5rem;
-  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  letter-spacing: -0.5px;
 }
 
 .header-subtitle {
-  color: rgba(255, 255, 255, 0.95);
-  font-size: 1.25rem;
-  font-weight: 300;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  color: #6b7280;
+  font-size: 1.125rem;
+  font-weight: 400;
   margin: 0;
 }
 
@@ -390,12 +378,11 @@ function formatDuration(ms: number): string {
 }
 
 .wizard-card {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 24px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
   animation: fadeInUp 0.8s ease;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid #e5e7eb;
 }
 
 @keyframes fadeInUp {
@@ -417,7 +404,7 @@ function formatDuration(ms: number): string {
 }
 
 .error-header {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: #dc2626;
   color: white;
   text-align: center;
   padding: 2rem;
@@ -448,7 +435,7 @@ function formatDuration(ms: number): string {
 }
 
 .results-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #1e40af;
   color: white;
   padding: 2.5rem 2rem;
   position: relative;
@@ -522,10 +509,10 @@ function formatDuration(ms: number): string {
   margin-bottom: 0.75rem;
 }
 
-.summary-icon.timer { color: #667eea; }
-.summary-icon.success { color: #51cf66; }
-.summary-icon.error { color: #ff6b6b; }
-.summary-icon.total { color: #4facfe; }
+.summary-icon.timer { color: #3b82f6; }
+.summary-icon.success { color: #059669; }
+.summary-icon.error { color: #dc2626; }
+.summary-icon.total { color: #6366f1; }
 
 .summary-value {
   font-size: 2rem;
@@ -587,11 +574,11 @@ function formatDuration(ms: number): string {
 }
 
 .success-gradient {
-  background: linear-gradient(135deg, #e3f9e5 0%, #c3f0ca 100%);
+  background: #d1fae5;
 }
 
 .error-gradient {
-  background: linear-gradient(135deg, #ffe5e5 0%, #ffd4d4 100%);
+  background: #fee2e2;
 }
 
 .model-info {
@@ -630,12 +617,12 @@ function formatDuration(ms: number): string {
   white-space: pre-wrap;
   font-size: 1rem;
   line-height: 1.6;
-  color: #34495e;
+  color: #374151;
   margin-bottom: 1rem;
   padding: 1rem;
-  background: #f8f9fa;
+  background: #f9fafb;
   border-radius: 8px;
-  border-left: 4px solid #667eea;
+  border-left: 4px solid #3b82f6;
 }
 
 .result-meta {
