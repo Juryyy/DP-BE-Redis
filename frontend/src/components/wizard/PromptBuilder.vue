@@ -223,41 +223,37 @@
         </div>
       </div>
 
-      <!-- Right Side: Document Viewer -->
+      <!-- Right Side: Document Viewer Preview -->
       <div class="document-viewer-section" v-if="wizardStore.uploadedFiles.length > 0">
         <div class="viewer-header q-mb-sm">
-          <q-select
-            v-model="selectedFileId"
-            :options="fileOptions"
-            label="Select File to View"
-            outlined
-            dense
-            emit-value
-            map-options
-            bg-color="white"
-            class="file-selector"
+          <q-btn
+            unelevated
+            color="primary"
+            icon="fullscreen"
+            label="Open Document Viewer"
+            @click="showViewerModal = true"
+            class="full-width"
+            size="md"
           >
-            <template #prepend>
-              <q-icon name="visibility" color="primary" size="sm" />
-            </template>
-          </q-select>
+            <q-tooltip>Open full-screen document viewer with prompts</q-tooltip>
+          </q-btn>
         </div>
 
-        <div class="viewer-container">
-          <DocumentViewer
-            v-if="selectedFile"
-            :file-url="selectedFile.url"
-            :filename="selectedFile.filename"
-            :mime-type="selectedFile.mimeType"
-            compact
-          />
-          <div v-else class="no-file-selected q-pa-lg text-center">
-            <q-icon name="insert_drive_file" size="3rem" color="grey-5" class="q-mb-sm" />
-            <p class="text-grey-6 text-body2">Select a file to preview</p>
-          </div>
+        <div class="viewer-preview text-center q-pa-lg">
+          <q-icon name="picture_as_pdf" size="4rem" color="blue-6" class="q-mb-md" />
+          <p class="text-subtitle2 text-grey-8">{{ wizardStore.uploadedFiles.length }} file(s) uploaded</p>
+          <p class="text-caption text-grey-6">Click above to view and create prompts</p>
         </div>
       </div>
     </div>
+
+    <!-- Full Screen Document Viewer Modal -->
+    <DocumentViewerModal
+      v-model="showViewerModal"
+      :files="wizardStore.uploadedFiles"
+      :selected-file-id="selectedFileId"
+      @update:selected-file-id="selectedFileId = $event"
+    />
   </div>
 </template>
 
@@ -265,7 +261,7 @@
 import { ref, computed, watch } from 'vue';
 import { useWizardStore } from 'src/stores/wizard-store';
 import type { PromptInput, TargetType } from 'src/types/wizard.types';
-import DocumentViewer from './DocumentViewer.vue';
+import DocumentViewerModal from './DocumentViewerModal.vue';
 
 const wizardStore = useWizardStore();
 
@@ -274,6 +270,7 @@ const prompts = ref<PromptInput[]>([]);
 
 // Document viewer state
 const selectedFileId = ref<string | null>(null);
+const showViewerModal = ref(false);
 
 // Auto-select first file when files are uploaded
 watch(

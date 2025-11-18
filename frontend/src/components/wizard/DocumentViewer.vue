@@ -17,6 +17,47 @@
     <div v-else class="viewer-content">
       <!-- PDF Viewer -->
       <div v-if="fileType === 'pdf'" class="pdf-viewer">
+        <!-- Pagination at Top -->
+        <div v-if="pdfNumPages && pdfNumPages > 1" class="pdf-pagination-top q-pa-md bg-primary text-white">
+          <div class="row items-center justify-center q-gutter-sm">
+            <q-btn
+              flat
+              icon="chevron_left"
+              @click="prevPage"
+              :disable="currentPage <= 1"
+              size="sm"
+              color="white"
+              class="text-white"
+            >
+              <q-tooltip>Previous Page</q-tooltip>
+            </q-btn>
+            <q-input
+              v-model.number="currentPage"
+              type="number"
+              dense
+              outlined
+              :min="1"
+              :max="pdfNumPages"
+              bg-color="white"
+              class="page-input-top"
+              style="width: 70px"
+            />
+            <span class="text-subtitle2 text-weight-medium">of {{ pdfNumPages }}</span>
+            <q-btn
+              flat
+              icon="chevron_right"
+              @click="nextPage"
+              :disable="currentPage >= pdfNumPages"
+              size="sm"
+              color="white"
+              class="text-white"
+            >
+              <q-tooltip>Next Page</q-tooltip>
+            </q-btn>
+          </div>
+        </div>
+
+        <!-- Toolbar -->
         <div class="viewer-toolbar q-pa-sm bg-grey-2 row items-center justify-between">
           <div class="row items-center q-gutter-sm">
             <q-btn
@@ -68,36 +109,6 @@
               @loaded="onPdfLoaded"
               @rendering-failed="onPdfError"
               class="pdf-page"
-            />
-          </div>
-
-          <div v-if="pdfNumPages && pdfNumPages > 1" class="pdf-pagination q-mt-md text-center">
-            <q-btn
-              flat
-              icon="chevron_left"
-              @click="prevPage"
-              :disable="currentPage <= 1"
-              label="Previous"
-              size="sm"
-            />
-            <q-input
-              v-model.number="currentPage"
-              type="number"
-              dense
-              outlined
-              :min="1"
-              :max="pdfNumPages"
-              class="page-input q-mx-md"
-              style="width: 80px; display: inline-block"
-            />
-            <span class="text-grey-7 q-mx-sm">of {{ pdfNumPages }}</span>
-            <q-btn
-              flat
-              icon-right="chevron_right"
-              @click="nextPage"
-              :disable="currentPage >= pdfNumPages"
-              label="Next"
-              size="sm"
             />
           </div>
         </div>
