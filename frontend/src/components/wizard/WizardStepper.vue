@@ -337,7 +337,7 @@ watch(() => props.currentStep, (newVal, oldVal) => {
   border-radius: 12px;
   font-weight: 600;
   text-transform: none;
-  font-size: 1rem;
+  font-size: 1.125rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 

@@ -7,6 +7,7 @@ export interface UploadedFile {
   filename: string;
   size: number;
   mimeType: string;
+  url?: string; // URL for accessing the file content
   tokenCount?: number;
   sections?: DocumentSection[];
   tables?: DocumentTable[];

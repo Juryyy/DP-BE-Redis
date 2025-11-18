@@ -1,24 +1,29 @@
 <template>
   <div class="prompt-builder">
-    <!-- Prompt List Header -->
-    <div class="prompts-header q-mb-md">
-      <h6 class="text-grey-8 q-ma-none">Processing Prompts ({{ prompts.length }})</h6>
-      <q-btn
-        color="primary"
-        label="Add Prompt"
-        icon="add"
-        @click="addNewPrompt"
-        unelevated
-        class="add-prompt-btn"
-      />
-    </div>
+    <!-- Split View Container -->
+    <div class="split-view">
+      <!-- Left Side: Prompt Configuration -->
+      <div class="prompts-section">
+        <!-- Prompt List Header -->
+        <div class="prompts-header q-mb-md">
+          <h6 class="text-grey-8 q-ma-none">Processing Prompts ({{ prompts.length }})</h6>
+          <q-btn
+            color="primary"
+            label="Add Prompt"
+            icon="add"
+            @click="addNewPrompt"
+            unelevated
+            size="sm"
+            class="add-prompt-btn"
+          />
+        </div>
 
-    <!-- No Prompts State -->
-    <div v-if="prompts.length === 0" class="no-prompts q-pa-xl text-center">
-      <q-icon name="post_add" size="4rem" color="grey-4" class="q-mb-md" />
-      <p class="text-grey-6">No prompts added yet. Click "Add Prompt" to start.</p>
-      <p class="text-caption text-grey-5">Or try one of the quick templates below</p>
-    </div>
+        <!-- No Prompts State -->
+        <div v-if="prompts.length === 0" class="no-prompts q-pa-xl text-center">
+          <q-icon name="post_add" size="3rem" color="grey-4" class="q-mb-md" />
+          <p class="text-grey-6">No prompts added yet. Click "Add Prompt" to start.</p>
+          <p class="text-caption text-grey-5">Or try one of the quick templates below</p>
+        </div>
 
     <!-- Prompts List -->
     <div v-else class="prompts-list q-mb-lg">
@@ -186,34 +191,70 @@
       </q-expansion-item>
     </div>
 
-    <!-- Quick Templates -->
-    <div class="prompt-templates q-mt-lg">
-      <div class="row items-center q-mb-md">
-        <q-icon name="lightbulb" color="amber-7" size="sm" class="q-mr-sm" />
-        <div class="text-subtitle2 text-grey-7">Quick Templates:</div>
+        <!-- Quick Templates -->
+        <div class="prompt-templates q-mt-lg">
+          <div class="row items-center q-mb-md">
+            <q-icon name="lightbulb" color="amber-7" size="sm" class="q-mr-sm" />
+            <div class="text-subtitle2 text-grey-7">Quick Templates:</div>
+          </div>
+          <div class="row q-col-gutter-sm">
+            <div
+              class="col-12 col-sm-6 col-md-12"
+              v-for="template in templates"
+              :key="template.content"
+            >
+              <q-card
+                flat
+                bordered
+                class="template-card cursor-pointer"
+                @click="useTemplate(template)"
+              >
+                <q-card-section class="q-pa-sm">
+                  <div class="row items-center q-mb-xs">
+                    <q-icon :name="template.icon" color="primary" size="xs" class="q-mr-xs" />
+                    <div class="text-caption text-weight-medium ellipsis">
+                      {{ template.content }}
+                    </div>
+                  </div>
+                </q-card-section>
+              </q-card>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="row q-col-gutter-sm">
-        <div
-          class="col-12 col-sm-6 col-md-4"
-          v-for="template in templates"
-          :key="template.content"
-        >
-          <q-card
-            flat
-            bordered
-            class="template-card cursor-pointer"
-            @click="useTemplate(template)"
+
+      <!-- Right Side: Document Viewer -->
+      <div class="document-viewer-section" v-if="wizardStore.uploadedFiles.length > 0">
+        <div class="viewer-header q-mb-sm">
+          <q-select
+            v-model="selectedFileId"
+            :options="fileOptions"
+            label="Select File to View"
+            outlined
+            dense
+            emit-value
+            map-options
+            bg-color="white"
+            class="file-selector"
           >
-            <q-card-section class="q-pa-md">
-              <div class="row items-center q-mb-xs">
-                <q-icon :name="template.icon" color="primary" size="sm" class="q-mr-sm" />
-                <div class="text-body2 text-weight-medium ellipsis">
-                  {{ template.content }}
-                </div>
-              </div>
-              <div class="text-caption text-grey-6">{{ template.description }}</div>
-            </q-card-section>
-          </q-card>
+            <template #prepend>
+              <q-icon name="visibility" color="primary" size="sm" />
+            </template>
+          </q-select>
+        </div>
+
+        <div class="viewer-container">
+          <DocumentViewer
+            v-if="selectedFile"
+            :file-url="selectedFile.url"
+            :filename="selectedFile.filename"
+            :mime-type="selectedFile.mimeType"
+            compact
+          />
+          <div v-else class="no-file-selected q-pa-lg text-center">
+            <q-icon name="insert_drive_file" size="3rem" color="grey-5" class="q-mb-sm" />
+            <p class="text-grey-6 text-body2">Select a file to preview</p>
+          </div>
         </div>
       </div>
     </div>
@@ -221,14 +262,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useWizardStore } from 'src/stores/wizard-store';
 import type { PromptInput, TargetType } from 'src/types/wizard.types';
+import DocumentViewer from './DocumentViewer.vue';
 
 const wizardStore = useWizardStore();
 
 // Local prompts state
 const prompts = ref<PromptInput[]>([]);
+
+// Document viewer state
+const selectedFileId = ref<string | null>(null);
+
+// Auto-select first file when files are uploaded
+watch(
+  () => wizardStore.uploadedFiles,
+  (files) => {
+    if (files.length > 0 && !selectedFileId.value) {
+      selectedFileId.value = files[0].id;
+    }
+  },
+  { immediate: true }
+);
 
 // Computed - use FileMetadata from wizard store
 const fileOptions = computed(() => {
@@ -236,6 +292,11 @@ const fileOptions = computed(() => {
     label: file.filename,
     value: file.id,
   }));
+});
+
+const selectedFile = computed(() => {
+  if (!selectedFileId.value) return null;
+  return wizardStore.uploadedFiles.find((file) => file.id === selectedFileId.value) || null;
 });
 
 const targetTypeOptions = [
@@ -324,6 +385,19 @@ function onTargetTypeChange(index: number) {
   }
 }
 
+// Watch for targetFileId changes and auto-switch document viewer
+watch(
+  () => prompts.value.map((p) => p.targetFileId).filter(Boolean),
+  (fileIds) => {
+    // If a file is selected in a prompt and it's different from current viewer, switch to it
+    const lastSelectedFileId = fileIds[fileIds.length - 1];
+    if (lastSelectedFileId && lastSelectedFileId !== selectedFileId.value) {
+      selectedFileId.value = lastSelectedFileId;
+    }
+  },
+  { deep: true }
+);
+
 function useTemplate(template: (typeof templates)[0]) {
   prompts.value.push({
     content: template.content,
@@ -407,6 +481,57 @@ defineExpose({
 <style lang="scss" scoped>
 .prompt-builder {
   width: 100%;
+  height: 100%;
+}
+
+.split-view {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  height: 100%;
+  min-height: 600px;
+
+  @media (max-width: 1200px) {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+.prompts-section {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.document-viewer-section {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  background: white;
+  overflow: hidden;
+
+  .viewer-header {
+    flex-shrink: 0;
+  }
+
+  .viewer-container {
+    flex: 1;
+    overflow: hidden;
+    border-radius: 6px;
+    background: #fafafa;
+  }
+
+  .no-file-selected {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    min-height: 400px;
+  }
 }
 
 .prompts-header {
@@ -416,6 +541,7 @@ defineExpose({
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-bottom: 1rem;
+  flex-shrink: 0;
 
   h6 {
     font-size: 0.95rem;
