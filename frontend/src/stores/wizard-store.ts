@@ -246,23 +246,29 @@ export const useWizardStore = defineStore('wizard', {
       this.error = null;
 
       try {
-        // First configure the model
-        await this.configureModel();
+        // Build model configurations for multi-model execution
+        const models = this.selectedModels.map(modelId => {
+          const provider = this.providers[this.selectedProvider];
+          const model = provider?.models.find(m => m.id === modelId);
+          return {
+            provider: this.selectedProvider,
+            modelName: modelId,
+            temperature: this.providerOptions.temperature,
+            maxTokens: this.providerOptions.maxTokens,
+            topP: this.providerOptions.topP,
+            apiKey: this.apiKeys[this.selectedProvider]
+          };
+        });
 
-        // Then submit prompts
-        const response = await api.post('/api/wizard/prompts', {
-          sessionId: this.sessionId,
-          prompts: [
-            {
-              content: this.promptText,
-              priority: 1,
-              targetType: 'GLOBAL'
-            }
-          ]
+        // Execute with multi-model API
+        const response = await api.post('/api/wizard/multi-model/execute', {
+          prompt: this.promptText,
+          models,
+          sessionId: this.sessionId
         });
 
         if (response.data.success) {
-          // Start polling for status or redirect to results
+          this.result = response.data.data;
           return true;
         }
         return false;
