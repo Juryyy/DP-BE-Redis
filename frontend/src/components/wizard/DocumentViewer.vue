@@ -146,13 +146,15 @@
             <q-chip size="sm" color="grey-3">{{ Math.round(scale * 100) }}%</q-chip>
           </div>
         </div>
-        <div class="word-container" ref="wordContainerRef" :style="{ transform: `scale(${scale})`, transformOrigin: 'top left' }">
-          <VueOfficeDocx
-            v-if="documentUrl"
-            :src="documentUrl"
-            @rendered="onWordRendered"
-            @error="onWordError"
-          />
+        <div class="word-container" ref="wordContainerRef">
+          <div class="word-content-wrapper" :style="{ transform: `scale(${scale})` }">
+            <VueOfficeDocx
+              v-if="documentUrl"
+              :src="documentUrl"
+              @rendered="onWordRendered"
+              @error="onWordError"
+            />
+          </div>
         </div>
       </div>
 
@@ -477,24 +479,24 @@ onMounted(() => {
   overflow: auto;
   background: transparent;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  justify-content: center;
   position: relative;
 
   &::-webkit-scrollbar {
-    width: 8px;
+    width: 10px;
+    height: 10px;
   }
 
   &::-webkit-scrollbar-track {
-    background: transparent;
+    background: #f1f1f1;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
+    background: #888;
     border-radius: 4px;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.3);
+      background: #555;
     }
   }
 }
@@ -504,7 +506,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100%;
+  min-width: min-content;
 }
 
 .pdf-page {
@@ -558,11 +560,35 @@ onMounted(() => {
 .word-container {
   flex: 1;
   overflow: auto;
-  padding: 1rem;
   background: white;
-  transition: transform 0.2s ease;
   display: flex;
   justify-content: center;
+  align-items: flex-start;
+
+  &::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+
+    &:hover {
+      background: #555;
+    }
+  }
+}
+
+.word-content-wrapper {
+  padding: 1rem;
+  transform-origin: center center;
+  transition: transform 0.2s ease;
+  min-width: min-content;
 
   :deep(.vue-office-docx) {
     width: 100%;
