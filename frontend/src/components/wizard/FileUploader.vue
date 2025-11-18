@@ -25,42 +25,42 @@
       <div class="upload-content">
         <q-icon
           name="cloud_upload"
-          size="3rem"
+          size="2.5rem"
           :color="isDragOver ? 'primary' : 'grey-5'"
-          class="q-mb-sm upload-icon"
+          class="q-mb-xs upload-icon"
           :class="{ bounce: isDragOver }"
         />
         <h6 class="text-grey-7 q-ma-none q-mb-xs upload-title">
-          {{ isDragOver ? 'Drop your files here' : 'Drag and drop your files here' }}
+          {{ isDragOver ? 'Drop files here' : 'Drag and drop files' }}
         </h6>
-        <p class="text-grey-5 q-ma-none q-mb-md upload-subtitle">or</p>
+        <p class="text-grey-5 q-ma-none q-mb-sm upload-subtitle">or</p>
         <q-btn
           color="primary"
-          label="Browse Files"
+          label="Browse"
           icon="folder_open"
           @click.stop="triggerFileInput"
           unelevated
-          size="sm"
+          size="xs"
           class="upload-button"
         />
-        <p class="text-grey-5 q-mt-sm q-ma-none upload-hint">
-          Supports PDF, DOCX, TXT, CSV, XLSX, PPTX, MD, RTF (Max {{ maxFileSize / 1024 / 1024 }}MB)
+        <p class="text-grey-5 q-mt-xs q-ma-none upload-hint">
+          PDF, DOCX, TXT, CSV, XLSX, PPTX, MD, RTF (Max {{ maxFileSize / 1024 / 1024 }}MB)
         </p>
       </div>
     </div>
 
     <!-- Selected Files List -->
-    <div v-if="selectedFiles.length > 0" class="selected-files q-mt-md">
-      <div class="files-header q-mb-sm">
-        <h6 class="text-grey-8 q-ma-none">Selected Files ({{ selectedFiles.length }})</h6>
+    <div v-if="selectedFiles.length > 0" class="selected-files q-mt-sm">
+      <div class="files-header q-mb-xs">
+        <span class="text-grey-8 text-caption">{{ selectedFiles.length }} file(s) selected</span>
         <q-btn
           flat
           dense
           icon="clear_all"
           color="grey-6"
           @click="clearAllFiles"
-          size="sm"
-          label="Clear All"
+          size="xs"
+          label="Clear"
         />
       </div>
 
@@ -70,7 +70,7 @@
             <q-icon
               :name="getFileIcon(file.name)"
               :color="getFileColor(file.name)"
-              size="md"
+              size="sm"
               class="file-icon"
             />
           </q-item-section>
@@ -90,33 +90,19 @@
               round
               icon="close"
               color="grey-6"
-              size="sm"
+              size="xs"
               @click="removeFile(index)"
               class="remove-btn"
             >
-              <q-tooltip>Remove file</q-tooltip>
+              <q-tooltip>Remove</q-tooltip>
             </q-btn>
           </q-item-section>
         </q-item>
       </q-list>
-
-      <!-- Upload Button -->
-      <div class="upload-action q-mt-md text-center">
-        <q-btn
-          unelevated
-          color="primary"
-          label="Upload Files"
-          icon="cloud_upload"
-          @click="uploadFiles"
-          :loading="isUploading"
-          size="md"
-          class="upload-submit-btn"
-        />
-      </div>
     </div>
 
     <!-- Upload Progress -->
-    <div v-if="isUploading" class="upload-progress q-mt-md">
+    <div v-if="isUploading" class="upload-progress q-mt-sm">
       <q-linear-progress
         :value="uploadProgress"
         color="primary"
@@ -430,6 +416,15 @@ const formatFileSize = (bytes: number): string => {
 
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
+
+// Expose methods for parent component
+const hasFiles = computed(() => selectedFiles.value.length > 0);
+
+defineExpose({
+  uploadFiles,
+  hasFiles,
+  selectedFiles,
+});
 </script>
 
 <style lang="scss" scoped>
@@ -439,8 +434,8 @@ const formatFileSize = (bytes: number): string => {
 
 .upload-zone {
   border: 2px dashed #cbd5e0;
-  border-radius: 8px;
-  padding: 2rem 1.5rem;
+  border-radius: 6px;
+  padding: 1.25rem 1rem;
   text-align: center;
   transition: all 0.3s ease;
   background: #fafafa;
@@ -499,16 +494,16 @@ const formatFileSize = (bytes: number): string => {
 }
 
 .upload-title {
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 
 .upload-subtitle {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
 }
 
 .upload-hint {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
 }
 
 .selected-files {
@@ -531,7 +526,7 @@ const formatFileSize = (bytes: number): string => {
 }
 
 .file-item {
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   min-height: auto;
 
   &:hover {
@@ -575,17 +570,17 @@ const formatFileSize = (bytes: number): string => {
 // Responsive design
 @media (max-width: 600px) {
   .upload-zone {
-    padding: 1.5rem 1rem;
+    padding: 1rem 0.75rem;
   }
 
   .upload-icon {
-    font-size: 2.5rem !important;
+    font-size: 2rem !important;
   }
 
   .files-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.5rem;
+    gap: 0.25rem;
   }
 }
 </style>

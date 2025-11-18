@@ -1,11 +1,24 @@
 <template>
   <div class="model-selector-compact">
     <!-- Info Banner -->
-    <q-banner dense rounded class="info-banner q-mb-md">
+    <q-banner dense rounded class="info-banner q-mb-sm">
       <template #avatar>
         <q-icon name="info" color="info" />
       </template>
-      <span class="text-body2">Model selection is optional. Leave unselected to use default configuration.</span>
+      <div class="row items-center justify-between full-width">
+        <span class="text-caption">Model selection is optional. Leave unselected to use default.</span>
+        <q-btn
+          flat
+          dense
+          icon="refresh"
+          color="primary"
+          @click="$emit('refresh')"
+          size="xs"
+          label="Reload"
+        >
+          <q-tooltip>Reload providers</q-tooltip>
+        </q-btn>
+      </div>
     </q-banner>
 
     <!-- Selected Models Summary -->

@@ -13,15 +13,16 @@
       <q-card class="wizard-card">
         <WizardStepper
           :current-step="wizardStore.currentStep"
-          :can-continue="wizardStore.canProceedToNextStep"
+          :can-continue="canContinue"
           :is-processing="wizardStore.isLoading"
           @back="wizardStore.previousStep"
-          @next="wizardStore.nextStep"
+          @next="handleNext"
           @process="handleStartProcessing"
           @update:current-step="(step) => wizardStore.currentStep = step"
         >
           <template #step1>
             <FileUploader
+              ref="fileUploaderRef"
               :uploaded-files="wizardStore.uploadedFiles"
               :session-id="wizardStore.sessionId"
               @upload-success="handleUploadSuccess"
@@ -211,7 +212,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useWizardStore } from 'stores/wizard-store';
 import WizardStepper from 'components/wizard/WizardStepper.vue';
 import FileUploader from 'components/wizard/FileUploader.vue';
@@ -222,6 +223,7 @@ import type { ProviderOptions, AdditionalSettings } from 'src/types/ai.types';
 import type { FileUploadEvent } from 'src/types/file.types';
 
 const wizardStore = useWizardStore();
+const fileUploaderRef = ref<InstanceType<typeof FileUploader> | null>(null);
 const promptBuilderRef = ref<InstanceType<typeof PromptBuilder> | null>(null);
 
 const showError = computed({
@@ -232,6 +234,14 @@ const showError = computed({
 const showResults = computed({
   get: () => !!wizardStore.result,
   set: () => { wizardStore.result = null; }
+});
+
+const canContinue = computed(() => {
+  if (wizardStore.currentStep === 1) {
+    // On step 1, check if files are selected
+    return fileUploaderRef.value?.hasFiles || false;
+  }
+  return wizardStore.canProceedToNextStep;
 });
 
 const processingSummary = computed(() => ({
@@ -245,6 +255,26 @@ const processingSummary = computed(() => ({
     ? `${wizardStore.selectedModels.length} model(s)`
     : 'Not selected'
 }));
+
+async function handleNext() {
+  // If we're on step 1, upload files before moving forward
+  if (wizardStore.currentStep === 1 && fileUploaderRef.value) {
+    if (fileUploaderRef.value.hasFiles) {
+      // Upload files
+      await fileUploaderRef.value.uploadFiles();
+      // Wait a bit for the upload success handler to process
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Only proceed if we have a session ID (upload was successful)
+      if (wizardStore.sessionId) {
+        wizardStore.nextStep();
+      }
+    }
+  } else {
+    // For other steps, just go to next
+    wizardStore.nextStep();
+  }
+}
 
 function handleUploadSuccess(event: FileUploadEvent) {
   console.log('WizardPage handleUploadSuccess called with:', event);
@@ -319,6 +349,11 @@ function formatDuration(ms: number): string {
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
   return `${(ms / 60000).toFixed(1)}m`;
 }
+
+// Load models on mount
+onMounted(() => {
+  wizardStore.fetchAvailableModels();
+});
 </script>
 
 <style scoped lang="scss">
