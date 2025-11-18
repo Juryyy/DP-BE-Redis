@@ -329,15 +329,7 @@ function formatDuration(ms: number): string {
     #f093fb 50%,
     #4facfe 75%,
     #00f2fe 100%);
-  background-size: 400% 400%;
-  animation: gradientShift 15s ease infinite;
   z-index: 0;
-}
-
-@keyframes gradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
 }
 
 .wizard-container {

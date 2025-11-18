@@ -59,9 +59,55 @@
       </div>
     </div>
 
+    <!-- Selected Files (Not Yet Uploaded) -->
+    <div v-if="selectedFiles.length > 0 && !isUploading" class="selected-files-section">
+      <div class="selected-header">
+        <div class="selected-header-content">
+          <q-icon name="insert_drive_file" color="primary" size="md" />
+          <h4 class="selected-title">Selected Files</h4>
+          <q-chip outline color="primary" class="selected-count">
+            {{ selectedFiles.length }} {{ selectedFiles.length === 1 ? 'file' : 'files' }}
+          </q-chip>
+        </div>
+        <q-btn
+          unelevated
+          color="primary"
+          label="Upload Files"
+          icon="cloud_upload"
+          size="lg"
+          class="upload-button"
+          @click="uploadFiles"
+        />
+      </div>
+
+      <div class="selected-files-list">
+        <div
+          v-for="(file, index) in selectedFiles"
+          :key="index"
+          class="selected-file-card"
+        >
+          <q-icon :name="getFileIcon(file.type)" color="primary" size="md" />
+          <div class="selected-file-info">
+            <div class="selected-file-name">{{ file.name }}</div>
+            <div class="selected-file-size">{{ formatFileSize(file.size) }}</div>
+          </div>
+          <q-btn
+            flat
+            round
+            icon="close"
+            color="negative"
+            size="sm"
+            @click="removeSelectedFile(index)"
+          >
+            <q-tooltip>Remove</q-tooltip>
+          </q-btn>
+        </div>
+      </div>
+    </div>
+
     <!-- Successfully Uploaded Files -->
-    <transition-group name="file-list" tag="div" v-if="uploadedFiles.length > 0" class="uploaded-files-section">
-      <div key="header" class="files-header">
+    <div v-if="uploadedFiles.length > 0" class="uploaded-files-section">
+      <div class="files-header">
         <div class="files-header-content">
           <q-icon name="check_circle" color="positive" size="md" />
           <h4 class="files-title">Uploaded Files</h4>
@@ -80,42 +126,44 @@
         </q-chip>
       </div>
 
-      <div
-        v-for="file in uploadedFiles"
-        :key="file.id"
-        class="file-card"
-      >
-        <div class="file-icon-wrapper" :style="{ background: getFileColorGradient(file.mimeType) }">
-          <q-icon :name="getFileIcon(file.mimeType)" color="white" size="32px" />
-        </div>
-
-        <div class="file-info">
-          <div class="file-name">{{ file.filename }}</div>
-          <div class="file-meta">
-            <span class="meta-item">
-              <q-icon name="folder" size="xs" />
-              {{ formatFileSize(file.size) }}
-            </span>
-            <span v-if="file.tokenCount" class="meta-item">
-              <q-icon name="data_usage" size="xs" />
-              {{ formatNumber(file.tokenCount) }} tokens
-            </span>
-          </div>
-        </div>
-
-        <q-btn
-          flat
-          round
-          icon="close"
-          color="negative"
-          size="sm"
-          class="remove-btn"
-          @click="removeUploadedFile(file.id)"
+      <transition-group name="file-list" tag="div" class="files-list">
+        <div
+          v-for="file in uploadedFiles"
+          :key="file.id"
+          class="file-card"
         >
-          <q-tooltip>Remove file</q-tooltip>
-        </q-btn>
-      </div>
-    </transition-group>
+          <div class="file-icon-wrapper" :style="{ background: getFileColorGradient(file.mimeType) }">
+            <q-icon :name="getFileIcon(file.mimeType)" color="white" size="32px" />
+          </div>
+
+          <div class="file-info">
+            <div class="file-name">{{ file.filename }}</div>
+            <div class="file-meta">
+              <span class="meta-item">
+                <q-icon name="folder" size="xs" />
+                {{ formatFileSize(file.size) }}
+              </span>
+              <span v-if="file.tokenCount" class="meta-item">
+                <q-icon name="data_usage" size="xs" />
+                {{ formatNumber(file.tokenCount) }} tokens
+              </span>
+            </div>
+          </div>
+
+          <q-btn
+            flat
+            round
+            icon="close"
+            color="negative"
+            size="sm"
+            class="remove-btn"
+            @click="removeUploadedFile(file.id)"
+          >
+            <q-tooltip>Remove file</q-tooltip>
+          </q-btn>
+        </div>
+      </transition-group>
+    </div>
 
     <!-- Empty State -->
     <div v-if="uploadedFiles.length === 0 && !isUploading" class="empty-state">
@@ -145,6 +193,7 @@ const emit = defineEmits<{
 const $q = useQuasar();
 
 const fileInput = ref<HTMLInputElement | null>(null);
+const selectedFiles = ref<File[]>([]);
 const isUploading = ref(false);
 const uploadProgress = ref(0);
 const isDragging = ref(false);
@@ -214,19 +263,6 @@ function onDrop(e: DragEvent) {
 }
 
 function processFiles(files: File[]) {
-  // Validate total size
-  const totalSize = files.reduce((sum, file) => sum + file.size, 0);
-
-  if (totalSize > maxTotalSize) {
-    $q.notify({
-      type: 'negative',
-      message: `Total file size exceeds 100MB limit (current: ${formatFileSize(totalSize)})`,
-      position: 'top',
-      icon: 'error'
-    });
-    return;
-  }
-
   // Validate individual file sizes
   const oversizedFiles = files.filter(f => f.size > maxFileSize);
   if (oversizedFiles.length > 0) {
@@ -239,16 +275,56 @@ function processFiles(files: File[]) {
     return;
   }
 
-  // Auto-upload
-  uploadFiles(files);
+  // Add to selected files (avoiding duplicates)
+  const newFiles = files.filter(newFile =>
+    !selectedFiles.value.some(existing => existing.name === newFile.name && existing.size === newFile.size)
+  );
+
+  if (newFiles.length === 0) {
+    $q.notify({
+      type: 'info',
+      message: 'These files have already been selected',
+      position: 'top'
+    });
+    return;
+  }
+
+  selectedFiles.value.push(...newFiles);
+
+  // Validate total size
+  const totalSize = selectedFiles.value.reduce((sum, file) => sum + file.size, 0);
+  if (totalSize > maxTotalSize) {
+    // Remove the newly added files
+    selectedFiles.value = selectedFiles.value.filter(f => !newFiles.includes(f));
+    $q.notify({
+      type: 'negative',
+      message: `Total file size would exceed 100MB limit`,
+      position: 'top',
+      icon: 'error'
+    });
+    return;
+  }
+
+  $q.notify({
+    type: 'positive',
+    message: `Added ${newFiles.length} file(s) - Click "Upload Files" button to upload`,
+    position: 'top',
+    icon: 'check'
+  });
 }
 
-async function uploadFiles(files: File[]) {
+function removeSelectedFile(index: number) {
+  selectedFiles.value.splice(index, 1);
+}
+
+async function uploadFiles() {
+  if (selectedFiles.value.length === 0) return;
+
   isUploading.value = true;
   uploadProgress.value = 0;
 
   const formData = new FormData();
-  files.forEach(file => {
+  selectedFiles.value.forEach(file => {
     formData.append('files', file);
   });
 
@@ -276,6 +352,9 @@ async function uploadFiles(files: File[]) {
         icon: 'check_circle',
         position: 'top'
       });
+
+      // Clear selected files after successful upload
+      selectedFiles.value = [];
     } else {
       throw new Error(response.data.error || 'Upload failed');
     }
@@ -479,8 +558,127 @@ function removeUploadedFile(fileId: string) {
   color: #2d3748;
 }
 
+/* Selected Files Section (Not Yet Uploaded) */
+.selected-files-section {
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #ebf4ff 0%, #c3dafe 100%);
+  border-radius: 16px;
+  border: 2px solid #667eea;
+  animation: slideDown 0.4s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.selected-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.selected-header-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.selected-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0;
+}
+
+.selected-count {
+  font-weight: 600;
+}
+
+.upload-button {
+  min-width: 180px;
+  padding: 0.75rem 2rem;
+  border-radius: 12px;
+  font-weight: 600;
+  text-transform: none;
+  font-size: 1rem;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  animation: pulse-glow 2s ease infinite;
+}
+
+.upload-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.6);
+  }
+}
+
+.selected-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.selected-file-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: white;
+  border-radius: 10px;
+  border: 2px solid #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.selected-file-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.selected-file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.selected-file-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selected-file-size {
+  font-size: 0.85rem;
+  color: #718096;
+}
+
 /* Uploaded Files Section */
 .uploaded-files-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.files-list {
   display: flex;
   flex-direction: column;
   gap: 1rem;
