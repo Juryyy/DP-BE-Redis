@@ -316,6 +316,10 @@ export const useWizardStore = defineStore('wizard', {
       this.uploadedFiles = this.uploadedFiles.filter(f => f.id !== fileId);
     },
 
+    setUploadedFiles(files: UploadedFile[]) {
+      this.uploadedFiles = files;
+    },
+
     setProvider(providerId: string) {
       this.selectedProvider = providerId;
       // Don't clear selected models - allow multi-provider selection
