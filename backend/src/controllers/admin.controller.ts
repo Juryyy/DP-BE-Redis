@@ -646,4 +646,200 @@ export class AdminController {
       });
     }
   }
+
+  /**
+   * Get all available AI providers with their models and metadata
+   * GET /api/admin/models/providers
+   */
+  static async getProviders(req: Request, res: Response): Promise<void> {
+    try {
+      const providers: any = {};
+
+      // Local Ollama
+      try {
+        const baseUrl = AdminController.getLocalOllamaUrl();
+        const models = await OllamaModelService.getAllModels(false);
+        const availableModels = models.filter(m => m.isAvailable && m.isEnabled);
+
+        providers.ollama = {
+          id: 'ollama',
+          name: 'Ollama (Local)',
+          description: 'Run AI models locally on your machine',
+          type: 'local',
+          available: availableModels.length > 0,
+          requiresApiKey: false,
+          baseUrl,
+          models: availableModels.map(m => ({
+            id: m.name,
+            name: m.displayName || m.name,
+            contextWindow: m.contextWindow || 8192,
+            parameterSize: m.parameterSize,
+            recommended: m.priority === 1
+          }))
+        };
+      } catch (error) {
+        logger.warn('Local Ollama not available:', error);
+        providers.ollama = {
+          id: 'ollama',
+          name: 'Ollama (Local)',
+          description: 'Run AI models locally on your machine',
+          type: 'local',
+          available: false,
+          requiresApiKey: false,
+          models: []
+        };
+      }
+
+      // Remote Ollama
+      if (process.env.OLLAMA_REMOTE_URL) {
+        try {
+          const baseUrl = AdminController.getRemoteOllamaUrl();
+          const response = await axios.get(`${baseUrl}/api/tags`, AdminController.getRemoteAxiosConfig());
+          const remoteModels = response.data?.models || [];
+
+          providers.ollamaRemote = {
+            id: 'ollamaRemote',
+            name: 'Ollama (Remote)',
+            description: 'Connect to a remote Ollama instance',
+            type: 'remote',
+            available: remoteModels.length > 0,
+            requiresApiKey: false,
+            baseUrl,
+            models: remoteModels.map((m: any) => ({
+              id: m.name,
+              name: m.name,
+              contextWindow: 8192,
+              size: m.size
+            }))
+          };
+        } catch (error) {
+          logger.warn('Remote Ollama not available:', error);
+        }
+      }
+
+      // OpenAI
+      providers.openai = {
+        id: 'openai',
+        name: 'OpenAI',
+        description: 'Access GPT models from OpenAI',
+        type: 'api',
+        available: !!process.env.OPENAI_API_KEY,
+        requiresApiKey: true,
+        models: [
+          {
+            id: 'gpt-4o',
+            name: 'GPT-4 Omni',
+            contextWindow: 128000,
+            costPer1kTokens: 0.005,
+            recommended: true
+          },
+          {
+            id: 'gpt-4o-mini',
+            name: 'GPT-4 Omni Mini',
+            contextWindow: 128000,
+            costPer1kTokens: 0.00015
+          },
+          {
+            id: 'gpt-4-turbo',
+            name: 'GPT-4 Turbo',
+            contextWindow: 128000,
+            costPer1kTokens: 0.01
+          },
+          {
+            id: 'gpt-3.5-turbo',
+            name: 'GPT-3.5 Turbo',
+            contextWindow: 16385,
+            costPer1kTokens: 0.0005
+          }
+        ]
+      };
+
+      // Anthropic
+      providers.anthropic = {
+        id: 'anthropic',
+        name: 'Anthropic',
+        description: 'Access Claude models from Anthropic',
+        type: 'api',
+        available: !!process.env.ANTHROPIC_API_KEY,
+        requiresApiKey: true,
+        models: [
+          {
+            id: 'claude-3-5-sonnet-20241022',
+            name: 'Claude 3.5 Sonnet',
+            contextWindow: 200000,
+            costPer1kTokens: 0.003,
+            recommended: true
+          },
+          {
+            id: 'claude-3-opus-20240229',
+            name: 'Claude 3 Opus',
+            contextWindow: 200000,
+            costPer1kTokens: 0.015
+          },
+          {
+            id: 'claude-3-haiku-20240307',
+            name: 'Claude 3 Haiku',
+            contextWindow: 200000,
+            costPer1kTokens: 0.00025
+          }
+        ]
+      };
+
+      // Google Gemini
+      providers.gemini = {
+        id: 'gemini',
+        name: 'Google Gemini',
+        description: 'Access Gemini models from Google',
+        type: 'api',
+        available: !!process.env.GEMINI_API_KEY,
+        requiresApiKey: true,
+        models: [
+          {
+            id: 'gemini-1.5-pro',
+            name: 'Gemini 1.5 Pro',
+            contextWindow: 1000000,
+            costPer1kTokens: 0.00125,
+            recommended: true
+          },
+          {
+            id: 'gemini-1.5-flash',
+            name: 'Gemini 1.5 Flash',
+            contextWindow: 1000000,
+            costPer1kTokens: 0.000075
+          }
+        ]
+      };
+
+      // Determine default provider
+      let defaultProvider = 'ollama';
+      let defaultModel = '';
+
+      if (providers.ollama.available && providers.ollama.models.length > 0) {
+        defaultProvider = 'ollama';
+        const recommended = providers.ollama.models.find((m: any) => m.recommended);
+        defaultModel = recommended ? recommended.id : providers.ollama.models[0].id;
+      } else if (providers.openai.available) {
+        defaultProvider = 'openai';
+        defaultModel = 'gpt-4o-mini';
+      } else if (providers.anthropic.available) {
+        defaultProvider = 'anthropic';
+        defaultModel = 'claude-3-5-sonnet-20241022';
+      }
+
+      res.json({
+        success: true,
+        data: {
+          providers,
+          default: defaultProvider,
+          defaultModel
+        }
+      });
+    } catch (error) {
+      logger.error('Error getting providers:', error);
+      res.status(500).json({
+        error: 'Failed to get providers',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
 }

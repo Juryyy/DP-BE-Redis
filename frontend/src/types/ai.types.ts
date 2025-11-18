@@ -5,7 +5,7 @@
 
 export type AIProviderType = 'local' | 'api' | 'remote';
 
-export type AIProviderName = 'ollama' | 'openai' | 'anthropic' | 'gemini';
+export type AIProviderName = 'ollama' | 'ollamaRemote' | 'openai' | 'anthropic' | 'gemini';
 
 export interface AIModel {
   id: string;
@@ -13,9 +13,14 @@ export interface AIModel {
   contextWindow: number;
   recommended?: boolean;
   costPer1kTokens?: number;
+  parameterSize?: string;
+  size?: number;
 }
 
 export interface AIProvider {
+  id: string;
+  name: string;
+  description: string;
   type: AIProviderType;
   available: boolean;
   requiresApiKey?: boolean;

@@ -1,8 +1,11 @@
 <template>
-  <q-card flat bordered>
+  <q-card flat bordered class="model-selector-card">
     <q-card-section>
-      <div class="text-h6">Step 2: Select AI Model</div>
-      <div class="text-caption text-grey">
+      <div class="text-h5 q-mb-xs">
+        <q-icon name="psychology" size="sm" class="q-mr-sm" />
+        Select AI Model
+      </div>
+      <div class="text-body2 text-grey-7">
         Choose the AI provider and model for processing your documents.
       </div>
     </q-card-section>
@@ -10,25 +13,85 @@
     <q-separator />
 
     <q-card-section>
-      <div class="text-subtitle2 q-mb-sm">AI Provider</div>
-      <q-btn-toggle
-        v-model="selectedProvider"
-        spread
-        no-caps
-        rounded
-        toggle-color="primary"
-        :options="providerOptions"
-        @update:model-value="onProviderChange"
-      />
+      <div class="text-subtitle1 text-weight-medium q-mb-md">AI Provider</div>
+
+      <div class="row q-col-gutter-md">
+        <div
+          v-for="[key, provider] in Object.entries(providers)"
+          :key="key"
+          class="col-12 col-md-6"
+        >
+          <q-card
+            flat
+            bordered
+            clickable
+            :class="[
+              'provider-card',
+              {
+                'selected': selectedProvider === key,
+                'disabled': !provider.available
+              }
+            ]"
+            @click="provider.available && onProviderChange(key)"
+          >
+            <q-card-section>
+              <div class="row items-center">
+                <div class="col">
+                  <div class="text-subtitle2 text-weight-medium">
+                    {{ provider.name }}
+                    <q-badge
+                      v-if="provider.type === 'local'"
+                      color="positive"
+                      label="Local"
+                      class="q-ml-sm"
+                    />
+                    <q-badge
+                      v-else-if="provider.type === 'remote'"
+                      color="info"
+                      label="Remote"
+                      class="q-ml-sm"
+                    />
+                    <q-badge
+                      v-else
+                      color="warning"
+                      label="API"
+                      class="q-ml-sm"
+                    />
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-xs">
+                    {{ provider.description }}
+                  </div>
+                  <div v-if="!provider.available" class="text-caption text-negative q-mt-xs">
+                    <q-icon name="warning" size="xs" /> Not configured
+                  </div>
+                </div>
+                <div class="col-auto">
+                  <q-radio
+                    :model-value="selectedProvider"
+                    :val="key"
+                    :disable="!provider.available"
+                  />
+                </div>
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+      </div>
     </q-card-section>
 
-    <q-card-section v-if="currentProvider?.requiresApiKey">
+    <q-card-section v-if="currentProvider?.requiresApiKey" class="bg-grey-1">
+      <q-banner dense class="bg-info text-white q-mb-md">
+        <template #avatar>
+          <q-icon name="vpn_key" />
+        </template>
+        This provider requires an API key to function
+      </q-banner>
+
       <q-input
         v-model="apiKey"
-        :label="`${providerName} API Key`"
+        :label="`${currentProvider?.name} API Key`"
         type="password"
-        outlined
-        dense
+        filled
         :rules="[(val: string) => !!val || 'API Key is required']"
         @update:model-value="onApiKeyChange"
       >
@@ -36,38 +99,53 @@
           <q-icon name="vpn_key" />
         </template>
         <template #hint>
-          Your API key is stored locally and never shared
+          <q-icon name="lock" size="xs" class="q-mr-xs" />
+          Your API key is encrypted and stored securely
         </template>
       </q-input>
     </q-card-section>
 
-    <q-card-section>
-      <div class="text-subtitle2 q-mb-sm">Select Model</div>
-      <q-option-group
-        v-model="selectedModel"
-        :options="modelOptions"
-        type="radio"
-        @update:model-value="onModelChange"
-      >
-        <template #label="opt">
-          <q-item dense>
-            <q-item-section>
-              <q-item-label>{{ opt.label }}</q-item-label>
-              <q-item-label caption>
-                <q-icon name="memory" size="xs" class="q-mr-xs" />
-                Context: {{ formatNumber(opt.contextWindow) }} tokens
-                <span v-if="opt.cost" class="q-ml-sm">
-                  <q-icon name="attach_money" size="xs" class="q-mr-xs" />
-                  ${{ opt.cost }}/1K tokens
-                </span>
-              </q-item-label>
-            </q-item-section>
-            <q-item-section side>
-              <q-badge v-if="opt.recommended" color="positive" label="Recommended" />
-            </q-item-section>
-          </q-item>
-        </template>
-      </q-option-group>
+    <q-card-section v-if="currentProvider">
+      <div class="text-subtitle1 text-weight-medium q-mb-md">Select Model</div>
+
+      <q-list bordered separator>
+        <q-item
+          v-for="model in currentProvider.models"
+          :key="model.id"
+          clickable
+          :active="selectedModel === model.id"
+          active-class="bg-blue-1"
+          @click="onModelChange(model.id)"
+        >
+          <q-item-section avatar>
+            <q-radio :model-value="selectedModel" :val="model.id" />
+          </q-item-section>
+
+          <q-item-section>
+            <q-item-label class="text-weight-medium">
+              {{ model.name }}
+              <q-badge
+                v-if="model.recommended"
+                color="positive"
+                label="⭐ Recommended"
+                class="q-ml-sm"
+              />
+            </q-item-label>
+            <q-item-label caption lines="1" class="q-mt-xs">
+              <q-icon name="memory" size="xs" class="q-mr-xs" />
+              {{ formatNumber(model.contextWindow) }} tokens context
+              <span v-if="model.costPer1kTokens" class="q-ml-md">
+                <q-icon name="payments" size="xs" class="q-mr-xs" />
+                ${{ model.costPer1kTokens }}/1K tokens
+              </span>
+              <span v-if="model.parameterSize" class="q-ml-md">
+                <q-icon name="storage" size="xs" class="q-mr-xs" />
+                {{ model.parameterSize }}
+              </span>
+            </q-item-label>
+          </q-item-section>
+        </q-item>
+      </q-list>
     </q-card-section>
 
     <q-expansion-item
@@ -189,45 +267,6 @@ const hasProviders = computed(() => Object.keys(props.providers).length > 0);
 
 const currentProvider = computed(() => props.providers[selectedProvider.value]);
 
-const providerName = computed(() => {
-  const names: Record<string, string> = {
-    ollama: 'Ollama',
-    openai: 'OpenAI',
-    anthropic: 'Anthropic',
-    gemini: 'Google Gemini'
-  };
-  return names[selectedProvider.value] || selectedProvider.value;
-});
-
-const providerOptions = computed(() => {
-  return Object.entries(props.providers).map(([key, provider]) => ({
-    label: getProviderLabel(key),
-    value: key,
-    disable: !provider.available,
-    slot: 'label'
-  }));
-});
-
-const modelOptions = computed(() => {
-  if (!currentProvider.value) return [];
-  return currentProvider.value.models.map(model => ({
-    label: model.name,
-    value: model.id,
-    contextWindow: model.contextWindow,
-    cost: model.costPer1kTokens,
-    recommended: model.recommended
-  }));
-});
-
-function getProviderLabel(key: string): string {
-  const labels: Record<string, string> = {
-    ollama: 'Ollama (Local)',
-    openai: 'OpenAI',
-    anthropic: 'Anthropic',
-    gemini: 'Gemini'
-  };
-  return labels[key] || key;
-}
 
 function formatNumber(num: number): string {
   if (num >= 1000000) {
@@ -264,3 +303,30 @@ function onOptionsChange() {
   emit('update:options', { ...localOptions.value });
 }
 </script>
+
+<style scoped>
+.model-selector-card {
+  min-height: 400px;
+}
+
+.provider-card {
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.provider-card.selected {
+  border-color: var(--q-primary);
+  background-color: rgba(var(--q-primary-rgb), 0.05);
+}
+
+.provider-card:not(.disabled):hover {
+  border-color: var(--q-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.provider-card.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+</style>

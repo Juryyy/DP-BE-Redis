@@ -124,7 +124,7 @@ export const useWizardStore = defineStore('wizard', {
       this.error = null;
 
       try {
-        const response = await api.get('/models');
+        const response = await api.get('/api/admin/models/providers');
         if (response.data.success) {
           this.providers = response.data.data.providers;
           this.selectedProvider = response.data.data.default || 'ollama';
@@ -144,8 +144,12 @@ export const useWizardStore = defineStore('wizard', {
     loadMockProviders() {
       this.providers = {
         ollama: {
+          id: 'ollama',
+          name: 'Ollama (Local)',
+          description: 'Run AI models locally on your machine',
           type: 'local',
           available: true,
+          requiresApiKey: false,
           models: [
             { id: 'llama3.1:8b', name: 'Llama 3.1 8B', contextWindow: 8192, recommended: true },
             { id: 'llama3.1:70b', name: 'Llama 3.1 70B', contextWindow: 8192 },
@@ -154,28 +158,42 @@ export const useWizardStore = defineStore('wizard', {
           baseUrl: 'http://localhost:11434'
         },
         openai: {
+          id: 'openai',
+          name: 'OpenAI',
+          description: 'Access GPT models from OpenAI',
           type: 'api',
           available: true,
           requiresApiKey: true,
           models: [
-            { id: 'gpt-4-turbo-preview', name: 'GPT-4 Turbo', contextWindow: 128000, costPer1kTokens: 0.01 },
+            { id: 'gpt-4o', name: 'GPT-4 Omni', contextWindow: 128000, costPer1kTokens: 0.005, recommended: true },
+            { id: 'gpt-4o-mini', name: 'GPT-4 Omni Mini', contextWindow: 128000, costPer1kTokens: 0.00015 },
+            { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', contextWindow: 128000, costPer1kTokens: 0.01 },
             { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', contextWindow: 16385, costPer1kTokens: 0.0005 }
           ]
         },
         anthropic: {
+          id: 'anthropic',
+          name: 'Anthropic',
+          description: 'Access Claude models from Anthropic',
           type: 'api',
           available: true,
           requiresApiKey: true,
           models: [
-            { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindow: 200000, costPer1kTokens: 0.003, recommended: true }
+            { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindow: 200000, costPer1kTokens: 0.003, recommended: true },
+            { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', contextWindow: 200000, costPer1kTokens: 0.015 },
+            { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku', contextWindow: 200000, costPer1kTokens: 0.00025 }
           ]
         },
         gemini: {
+          id: 'gemini',
+          name: 'Google Gemini',
+          description: 'Access Gemini models from Google',
           type: 'api',
           available: false,
           requiresApiKey: true,
           models: [
-            { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', contextWindow: 1000000, costPer1kTokens: 0.00125 }
+            { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', contextWindow: 1000000, costPer1kTokens: 0.00125, recommended: true },
+            { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', contextWindow: 1000000, costPer1kTokens: 0.000075 }
           ]
         }
       };
@@ -193,7 +211,7 @@ export const useWizardStore = defineStore('wizard', {
       this.error = null;
 
       try {
-        const response = await api.post('/models/configure', {
+        const response = await api.post('/api/wizard/configure-model', {
           sessionId: this.sessionId,
           provider: this.selectedProvider,
           model: this.selectedModel,
@@ -226,7 +244,7 @@ export const useWizardStore = defineStore('wizard', {
         await this.configureModel();
 
         // Then submit prompts
-        const response = await api.post('/prompts', {
+        const response = await api.post('/api/wizard/prompts', {
           sessionId: this.sessionId,
           prompts: [
             {
@@ -262,7 +280,7 @@ export const useWizardStore = defineStore('wizard', {
       });
 
       try {
-        const response = await api.post('/upload', formData, {
+        const response = await api.post('/api/wizard/upload', formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }

@@ -1,180 +1,147 @@
 <template>
-  <q-card flat bordered>
+  <q-card flat bordered class="file-uploader-card">
     <q-card-section>
-      <div class="text-h6">Step 1: Upload Files</div>
+      <div class="text-h5 q-mb-xs">
+        <q-icon name="cloud_upload" size="sm" class="q-mr-sm" />
+        Upload Documents
+      </div>
+      <div class="text-body2 text-grey-7">
+        Upload your documents for AI processing. Supported formats: PDF, Word, Excel, Text, and CSV.
+      </div>
     </q-card-section>
 
     <q-separator />
 
     <q-card-section>
-      <q-uploader
-        ref="uploaderRef"
-        :url="uploadUrl"
-        label="Upload your documents"
+      <q-file
+        v-model="selectedFiles"
+        label="Select files to upload"
         multiple
-        batch
-        :accept="acceptedTypes"
+        filled
+        counter
         :max-file-size="maxFileSize"
-        :max-total-size="maxTotalSize"
-        flat
-        bordered
-        class="full-width"
-        field-name="files"
-        @added="onFilesAdded"
-        @removed="onFileRemoved"
-        @uploaded="onUploaded"
-        @failed="onUploadFailed"
+        :accept="acceptedTypes"
+        @update:model-value="onFilesSelected"
       >
-        <template #header="scope">
-          <div class="row no-wrap items-center q-pa-sm q-gutter-xs">
-            <q-btn
-              v-if="scope.queuedFiles.length > 0"
-              icon="clear_all"
-              round
-              dense
-              flat
-              @click="scope.removeQueuedFiles"
-            >
-              <q-tooltip>Clear All</q-tooltip>
-            </q-btn>
-            <q-btn
-              v-if="scope.uploadedFiles.length > 0"
-              icon="done_all"
-              round
-              dense
-              flat
-              @click="scope.removeUploadedFiles"
-            >
-              <q-tooltip>Remove Uploaded Files</q-tooltip>
-            </q-btn>
-            <q-spinner v-if="scope.isUploading" class="q-uploader__spinner" />
-            <div class="col">
-              <div class="q-uploader__title">Upload Documents</div>
-              <div class="q-uploader__subtitle">
-                {{ scope.uploadSizeLabel }} / {{ scope.uploadProgressLabel }}
-              </div>
-            </div>
-            <q-btn
-              v-if="scope.canAddFiles"
-              type="a"
-              icon="add_box"
-              round
-              dense
-              flat
-              @click="scope.pickFiles"
-            >
-              <q-uploader-add-trigger />
-              <q-tooltip>Pick Files</q-tooltip>
-            </q-btn>
-            <q-btn
-              v-if="scope.canUpload"
-              icon="cloud_upload"
-              round
-              dense
-              flat
-              @click="scope.upload"
-            >
-              <q-tooltip>Upload Files</q-tooltip>
-            </q-btn>
-
-            <q-btn
-              v-if="scope.isUploading"
-              icon="clear"
-              round
-              dense
-              flat
-              @click="scope.abort"
-            >
-              <q-tooltip>Abort Upload</q-tooltip>
-            </q-btn>
-          </div>
+        <template #prepend>
+          <q-icon name="attach_file" />
         </template>
 
-        <template #list="scope">
-          <q-list separator>
-            <q-item v-for="file in scope.files" :key="file.__key">
-              <q-item-section avatar>
-                <q-icon :name="getFileIcon(file.type)" :color="getFileColor(file.type)" size="md" />
-              </q-item-section>
-
-              <q-item-section>
-                <q-item-label class="full-width ellipsis">
-                  {{ file.name }}
-                </q-item-label>
-                <q-item-label caption>
-                  {{ formatFileSize(file.size) }} - {{ file.type || 'Unknown type' }}
-                </q-item-label>
-              </q-item-section>
-
-              <q-item-section
-                v-if="file.__status === 'failed'"
-                side
-              >
-                <q-badge color="negative" label="Failed" />
-              </q-item-section>
-
-              <q-item-section
-                v-else-if="file.__status === 'uploaded'"
-                side
-              >
-                <q-icon name="done" color="positive" size="sm" />
-              </q-item-section>
-
-              <q-item-section side>
-                <q-btn
-                  flat
-                  dense
-                  round
-                  icon="delete"
-                  color="negative"
-                  @click="scope.removeFile(file)"
-                />
-              </q-item-section>
-            </q-item>
-          </q-list>
+        <template #hint>
+          Max file size: 25MB per file, 100MB total. Supported: PDF, DOCX, XLSX, TXT, CSV
         </template>
-      </q-uploader>
+
+        <template #after>
+          <q-btn
+            round
+            dense
+            flat
+            icon="cloud_upload"
+            color="primary"
+            :disable="!selectedFiles || selectedFiles.length === 0 || isUploading"
+            :loading="isUploading"
+            @click="uploadFiles"
+          >
+            <q-tooltip>Upload selected files</q-tooltip>
+          </q-btn>
+        </template>
+      </q-file>
+
+      <!-- Drag and Drop Area -->
+      <div
+        class="drop-zone q-mt-md"
+        :class="{ 'drop-zone-active': isDragging }"
+        @drop.prevent="onDrop"
+        @dragover.prevent="isDragging = true"
+        @dragleave.prevent="isDragging = false"
+      >
+        <div class="text-center q-pa-xl">
+          <q-icon name="cloud_upload" size="64px" color="grey-5" />
+          <div class="text-h6 text-grey-7 q-mt-md">Drag and drop files here</div>
+          <div class="text-caption text-grey-6">or use the file selector above</div>
+        </div>
+      </div>
     </q-card-section>
 
-    <q-card-section v-if="uploadedFiles.length > 0">
-      <div class="text-subtitle2 q-mb-sm">
-        <q-icon name="check_circle" color="positive" class="q-mr-xs" />
-        Successfully Uploaded ({{ uploadedFiles.length }})
+    <!-- Upload Progress -->
+    <q-card-section v-if="isUploading">
+      <q-linear-progress :value="uploadProgress" color="primary" class="q-mt-sm" />
+      <div class="text-caption text-center q-mt-xs">
+        Uploading... {{ Math.round(uploadProgress * 100) }}%
       </div>
-      <q-list bordered separator>
-        <q-item v-for="file in uploadedFiles" :key="file.id">
+    </q-card-section>
+
+    <!-- Successfully Uploaded Files -->
+    <q-card-section v-if="uploadedFiles.length > 0">
+      <div class="row items-center q-mb-md">
+        <div class="col">
+          <div class="text-subtitle1 text-weight-medium">
+            <q-icon name="check_circle" color="positive" class="q-mr-sm" />
+            Uploaded Files ({{ uploadedFiles.length }})
+          </div>
+        </div>
+        <div class="col-auto">
+          <q-chip
+            outline
+            color="primary"
+            icon="memory"
+            :label="`${formatNumber(totalTokens)} tokens`"
+          />
+        </div>
+      </div>
+
+      <q-list bordered separator class="rounded-borders">
+        <q-item
+          v-for="file in uploadedFiles"
+          :key="file.id"
+          class="uploaded-file-item"
+        >
           <q-item-section avatar>
-            <q-icon :name="getFileIcon(file.mimeType)" :color="getFileColor(file.mimeType)" />
+            <q-avatar
+              :icon="getFileIcon(file.mimeType)"
+              :color="getFileColor(file.mimeType)"
+              text-color="white"
+              size="48px"
+            />
           </q-item-section>
+
           <q-item-section>
-            <q-item-label>{{ file.filename }}</q-item-label>
-            <q-item-label caption>
+            <q-item-label class="text-weight-medium">{{ file.filename }}</q-item-label>
+            <q-item-label caption class="q-mt-xs">
+              <q-icon name="folder" size="xs" class="q-mr-xs" />
               {{ formatFileSize(file.size) }}
-              <q-badge v-if="file.tokenCount" color="info" class="q-ml-sm">
-                {{ file.tokenCount }} tokens
-              </q-badge>
+              <span v-if="file.tokenCount" class="q-ml-md">
+                <q-icon name="data_usage" size="xs" class="q-mr-xs" />
+                {{ formatNumber(file.tokenCount) }} tokens
+              </span>
             </q-item-label>
           </q-item-section>
+
           <q-item-section side>
             <q-btn
               flat
               dense
               round
-              icon="close"
+              icon="delete"
               color="negative"
               @click="removeUploadedFile(file.id)"
-            />
+            >
+              <q-tooltip>Remove file</q-tooltip>
+            </q-btn>
           </q-item-section>
         </q-item>
       </q-list>
     </q-card-section>
 
-    <q-card-section v-if="uploadedFiles.length > 0">
-      <q-banner class="bg-info text-white">
+    <!-- Empty State -->
+    <q-card-section v-if="uploadedFiles.length === 0 && !selectedFiles">
+      <q-banner rounded class="bg-grey-2">
         <template #avatar>
-          <q-icon name="info" />
+          <q-icon name="info" color="primary" />
         </template>
-        Total: {{ totalTokens }} tokens estimated
+        <div class="text-body2">
+          No files uploaded yet. Select files above or drag and drop them into the designated area.
+        </div>
       </q-banner>
     </q-card-section>
   </q-card>
@@ -182,7 +149,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { QUploader, useQuasar } from 'quasar';
+import { useQuasar } from 'quasar';
+import { api } from 'boot/axios';
 import type { UploadedFile, FileUploadEvent } from 'src/types/file.types';
 
 const props = defineProps<{
@@ -197,16 +165,14 @@ const emit = defineEmits<{
 }>();
 
 const $q = useQuasar();
-const uploaderRef = ref<InstanceType<typeof QUploader> | null>(null);
 
-const uploadUrl = computed(() => {
-  const baseUrl = process.env.API_URL || 'http://localhost:3000/api/wizard';
-  return `${baseUrl}/upload`;
-});
+const selectedFiles = ref<File[] | null>(null);
+const isUploading = ref(false);
+const uploadProgress = ref(0);
+const isDragging = ref(false);
 
 const acceptedTypes = '.pdf,.docx,.doc,.xlsx,.xls,.txt,.csv';
 const maxFileSize = 25 * 1024 * 1024; // 25MB
-const maxTotalSize = 100 * 1024 * 1024; // 100MB
 
 const totalTokens = computed(() => {
   return props.uploadedFiles.reduce((sum, file) => sum + (file.tokenCount || 0), 0);
@@ -238,60 +204,142 @@ function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-function onFilesAdded(files: readonly { name: string }[]) {
+function formatNumber(num: number): string {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + 'M';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1) + 'K';
+  }
+  return num.toString();
+}
+
+function onFilesSelected(files: File[] | null) {
+  if (!files || files.length === 0) return;
+
+  const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+  const maxTotalSize = 100 * 1024 * 1024; // 100MB
+
+  if (totalSize > maxTotalSize) {
+    $q.notify({
+      type: 'negative',
+      message: `Total file size exceeds 100MB limit (current: ${formatFileSize(totalSize)})`,
+      position: 'top'
+    });
+    selectedFiles.value = null;
+    return;
+  }
+
   $q.notify({
     type: 'info',
-    message: `Added ${files.length} file(s) to queue`,
+    message: `${files.length} file(s) selected (${formatFileSize(totalSize)})`,
     position: 'top'
   });
 }
 
-function onFileRemoved() {
-  // File removed from queue
-}
-
-function onUploaded(info: { xhr: XMLHttpRequest }) {
-  try {
-    const response = JSON.parse(info.xhr.responseText);
-    if (response.success) {
-      emit('upload-success', {
-        sessionId: response.data.sessionId,
-        files: response.data.files
-      });
-      $q.notify({
-        type: 'positive',
-        message: 'Files uploaded successfully!',
-        position: 'top'
-      });
-    } else {
-      emit('upload-failed', response.error || 'Upload failed');
-      $q.notify({
-        type: 'negative',
-        message: response.error || 'Upload failed',
-        position: 'top'
-      });
-    }
-  } catch {
-    emit('upload-failed', 'Invalid server response');
-    $q.notify({
-      type: 'negative',
-      message: 'Invalid server response',
-      position: 'top'
-    });
+function onDrop(e: DragEvent) {
+  isDragging.value = false;
+  const files = Array.from(e.dataTransfer?.files || []);
+  if (files.length > 0) {
+    selectedFiles.value = files;
+    onFilesSelected(files);
   }
 }
 
-function onUploadFailed(info: { xhr: XMLHttpRequest }) {
-  const errorMsg = info.xhr.statusText || 'Upload failed';
-  emit('upload-failed', errorMsg);
-  $q.notify({
-    type: 'negative',
-    message: `Upload failed: ${errorMsg}`,
-    position: 'top'
+async function uploadFiles() {
+  if (!selectedFiles.value || selectedFiles.value.length === 0) return;
+
+  isUploading.value = true;
+  uploadProgress.value = 0;
+
+  const formData = new FormData();
+  selectedFiles.value.forEach(file => {
+    formData.append('files', file);
   });
+
+  try {
+    const response = await api.post('/api/wizard/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total) {
+          uploadProgress.value = progressEvent.loaded / progressEvent.total;
+        }
+      }
+    });
+
+    if (response.data.success) {
+      emit('upload-success', {
+        sessionId: response.data.data.sessionId,
+        files: response.data.data.files
+      });
+
+      $q.notify({
+        type: 'positive',
+        message: `Successfully uploaded ${response.data.data.files.length} file(s)`,
+        icon: 'check_circle',
+        position: 'top'
+      });
+
+      selectedFiles.value = null;
+    } else {
+      throw new Error(response.data.error || 'Upload failed');
+    }
+  } catch (error: any) {
+    const errorMsg = error.response?.data?.error || error.message || 'Upload failed';
+    emit('upload-failed', errorMsg);
+
+    $q.notify({
+      type: 'negative',
+      message: `Upload failed: ${errorMsg}`,
+      icon: 'error',
+      position: 'top'
+    });
+  } finally {
+    isUploading.value = false;
+    uploadProgress.value = 0;
+  }
 }
 
 function removeUploadedFile(fileId: string) {
   emit('remove-file', fileId);
+  $q.notify({
+    type: 'info',
+    message: 'File removed',
+    position: 'top'
+  });
 }
 </script>
+
+<style scoped>
+.file-uploader-card {
+  min-height: 400px;
+}
+
+.drop-zone {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  background-color: #fafafa;
+}
+
+.drop-zone:hover {
+  border-color: var(--q-primary);
+  background-color: rgba(var(--q-primary-rgb), 0.05);
+}
+
+.drop-zone-active {
+  border-color: var(--q-primary);
+  background-color: rgba(var(--q-primary-rgb), 0.1);
+  border-style: solid;
+}
+
+.uploaded-file-item {
+  transition: background-color 0.2s ease;
+}
+
+.uploaded-file-item:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+</style>
