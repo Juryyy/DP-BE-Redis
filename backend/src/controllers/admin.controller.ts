@@ -678,7 +678,7 @@ export class AdminController {
           }))
         };
       } catch (error) {
-        logger.warn('Local Ollama not available:', error);
+        logger.warn('Local Ollama not available:', error instanceof Error ? error.message : 'Unknown error');
         providers.ollama = {
           id: 'ollama',
           name: 'Ollama (Local)',
@@ -713,7 +713,7 @@ export class AdminController {
             }))
           };
         } catch (error) {
-          logger.warn('Remote Ollama not available:', error);
+          logger.warn('Remote Ollama not available:', error instanceof Error ? error.message : 'Unknown error');
         }
       }
 
@@ -835,7 +835,7 @@ export class AdminController {
         }
       });
     } catch (error) {
-      logger.error('Error getting providers:', error);
+      logger.error('Error getting providers:', error instanceof Error ? error.message : 'Unknown error');
       res.status(500).json({
         error: 'Failed to get providers',
         message: error instanceof Error ? error.message : 'Unknown error'
