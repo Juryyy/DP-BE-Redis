@@ -9,8 +9,10 @@ declare module '@vue/runtime-core' {
 }
 
 // Create axios instance
+// In development, use relative URLs (proxy handles routing to backend)
+// In production, use the configured API_URL or default to same origin
 const api = axios.create({
-  baseURL: process.env.API_URL || 'http://localhost:3000',
+  baseURL: process.env.DEV ? '' : (process.env.API_URL || ''),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
