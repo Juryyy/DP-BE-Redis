@@ -320,6 +320,10 @@ export const useWizardStore = defineStore('wizard', {
       this.uploadedFiles = files;
     },
 
+    setSessionId(sessionId: string) {
+      this.sessionId = sessionId;
+    },
+
     setProvider(providerId: string) {
       this.selectedProvider = providerId;
       // Don't clear selected models - allow multi-provider selection
