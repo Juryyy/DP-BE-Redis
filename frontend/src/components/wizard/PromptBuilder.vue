@@ -160,19 +160,69 @@
               </div>
             </div>
 
+            <!-- Target File for SECTION_SPECIFIC -->
+            <div v-if="prompt.targetType === 'SECTION_SPECIFIC'" class="q-mb-md">
+              <q-select
+                v-model="prompt.targetFileId"
+                :options="fileOptions"
+                label="Source File *"
+                hint="Select file containing the section"
+                outlined
+                emit-value
+                map-options
+                :rules="[(val: string) => !!val || 'Source file is required']"
+                @update:model-value="() => onFileChangeForSection(index)"
+              >
+                <template #prepend>
+                  <q-icon name="description" color="primary" />
+                </template>
+              </q-select>
+            </div>
+
             <!-- Target Section (for SECTION_SPECIFIC) -->
             <div v-if="prompt.targetType === 'SECTION_SPECIFIC'" class="q-mb-md">
-              <q-input
+              <q-select
                 v-model="prompt.targetSection"
+                :options="getSectionOptionsForFile(prompt.targetFileId)"
                 label="Target Section *"
-                hint="Enter the section name (e.g., 'Q4 Revenue', 'Executive Summary')"
+                hint="Select a section from the document"
                 outlined
+                emit-value
+                map-options
+                use-input
+                input-debounce="0"
                 :rules="[(val: string) => !!val || 'Target section is required']"
+                :disable="!prompt.targetFileId"
+                @filter="filterSections"
               >
                 <template #prepend>
                   <q-icon name="segment" color="primary" />
                 </template>
-              </q-input>
+                <template #no-option>
+                  <q-item>
+                    <q-item-section class="text-grey">
+                      {{
+                        prompt.targetFileId
+                          ? 'No sections found. Type to add custom section.'
+                          : 'Select a file first'
+                      }}
+                    </q-item-section>
+                  </q-item>
+                </template>
+                <template #option="scope">
+                  <q-item v-bind="scope.itemProps">
+                    <q-item-section avatar>
+                      <q-icon :name="getSectionLevelIcon(scope.opt.level)" size="sm" />
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>{{ scope.opt.label }}</q-item-label>
+                      <q-item-label caption>
+                        Lines {{ scope.opt.startLine }}-{{ scope.opt.endLine }}
+                      </q-item-label>
+                    </q-item-section>
+                  </q-item>
+                </template>
+              </q-select>
             </div>
 
             <!-- Actions -->
@@ -381,6 +431,55 @@ function onTargetTypeChange(index: number) {
     prompt.targetLines = { start: 1, end: 10 };
   } else {
     delete prompt.targetLines;
+  }
+}
+
+function onFileChangeForSection(index: number) {
+  const prompt = wizardStore.prompts[index];
+  if (!prompt) return;
+
+  // Reset section when file changes
+  delete prompt.targetSection;
+}
+
+// Get section options for a specific file
+function getSectionOptionsForFile(fileId: string | undefined) {
+  if (!fileId) return [];
+
+  const file = wizardStore.uploadedFiles.find((f) => f.id === fileId);
+  if (!file || !file.sections || file.sections.length === 0) {
+    return [];
+  }
+
+  return file.sections.map((section) => ({
+    label: section.title,
+    value: section.title,
+    level: section.level,
+    startLine: section.startLine,
+    endLine: section.endLine,
+  }));
+}
+
+// Filter sections for autocomplete
+function filterSections(val: string, update: (fn: () => void) => void) {
+  update(() => {
+    // The filtering is handled by Quasar's use-input
+  });
+}
+
+// Get icon based on section heading level
+function getSectionLevelIcon(level: number) {
+  switch (level) {
+    case 1:
+      return 'looks_one';
+    case 2:
+      return 'looks_two';
+    case 3:
+      return 'looks_3';
+    case 4:
+      return 'looks_4';
+    default:
+      return 'segment';
   }
 }
 
