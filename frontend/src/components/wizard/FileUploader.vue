@@ -50,11 +50,11 @@
     </div>
 
     <!-- Previously Uploaded Files (from store) -->
-    <div v-if="hasUploadedFiles && selectedFiles.length === 0" class="uploaded-files q-mt-sm">
+    <div v-if="hasUploadedFiles" class="uploaded-files q-mt-sm">
       <div class="files-header q-mb-xs">
         <span class="text-positive text-caption">
           <q-icon name="check_circle" size="xs" class="q-mr-xs" />
-          {{ uploadedFiles.length }} file(s) already uploaded
+          {{ uploadedFiles.length }} file(s) from previous upload
         </span>
       </div>
 
@@ -82,14 +82,32 @@
           </q-item-section>
 
           <q-item-section side>
-            <q-badge color="positive" label="Uploaded" />
+            <q-badge color="positive" label="Previous Upload" />
           </q-item-section>
         </q-item>
       </q-list>
 
-      <p class="text-caption text-grey-6 q-mt-sm q-mb-none">
-        Click "Continue" to proceed with these files, or select new files to re-upload.
-      </p>
+      <div v-if="selectedFiles.length === 0" class="q-mt-sm">
+        <q-banner rounded class="bg-blue-1">
+          <template #avatar>
+            <q-icon name="info" color="primary" />
+          </template>
+          <div class="text-caption">
+            <strong>Click "Continue"</strong> to proceed with these files, or <strong>select files below</strong> to upload a new set (select ALL files you want, including previous ones if you want to keep them).
+          </div>
+        </q-banner>
+      </div>
+
+      <div v-else class="q-mt-sm">
+        <q-banner rounded class="bg-orange-1">
+          <template #avatar>
+            <q-icon name="warning" color="warning" />
+          </template>
+          <div class="text-caption">
+            <strong>Note:</strong> Uploading will create a new session with ONLY the {{ selectedFiles.length }} file(s) selected below. Previous files will NOT be included unless you select them again.
+          </div>
+        </q-banner>
+      </div>
     </div>
 
     <!-- Selected Files List -->

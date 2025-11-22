@@ -215,9 +215,21 @@ async function fetchResults() {
     const response = await api.get(`/api/wizard/result/${wizardStore.sessionId}`);
     const data = response.data;
 
+    console.log('Fetched results:', data);
+
     if (data.success && data.data) {
-      // Add AI response messages
-      if (Array.isArray(data.data.prompts)) {
+      // Handle new result format (combined result)
+      if (data.data.result && data.data.result.content) {
+        messages.value.push({
+          type: 'ai',
+          content: data.data.result.content,
+          timestamp: new Date(data.data.result.createdAt || Date.now()),
+          model: 'AI Model',
+          isHtml: false,
+        });
+      }
+      // Handle legacy format (individual prompts) - fallback
+      else if (Array.isArray(data.data.prompts)) {
         data.data.prompts.forEach((prompt: any) => {
           if (prompt.result) {
             messages.value.push({
@@ -237,6 +249,8 @@ async function fetchResults() {
             });
           }
         });
+      } else {
+        console.warn('No results found in response:', data.data);
       }
 
       statusText.value = 'Processing complete';
@@ -244,6 +258,7 @@ async function fetchResults() {
       await scrollToBottom();
     }
   } catch (err: any) {
+    console.error('Error fetching results:', err);
     error.value = err.response?.data?.error || 'Failed to fetch results';
     statusText.value = 'Error occurred';
   }
