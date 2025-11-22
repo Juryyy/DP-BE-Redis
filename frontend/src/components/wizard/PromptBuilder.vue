@@ -252,9 +252,9 @@
       v-model="showViewerModal"
       :files="wizardStore.uploadedFiles"
       :selected-file-id="selectedFileId"
-      :prompts="prompts"
+      :prompts="wizardStore.prompts"
       @update:selected-file-id="selectedFileId = $event"
-      @update:prompts="prompts = $event"
+      @update:prompts="wizardStore.setPrompts($event)"
     />
   </div>
 </template>
@@ -267,11 +267,8 @@ import DocumentViewerModal from './DocumentViewerModal.vue';
 
 const wizardStore = useWizardStore();
 
-// Use prompts from wizard store for persistence
-const prompts = computed({
-  get: () => wizardStore.prompts,
-  set: (value) => wizardStore.setPrompts(value),
-});
+// Use prompts directly from wizard store for persistence
+const prompts = computed(() => wizardStore.prompts);
 
 // Document viewer state
 const selectedFileId = ref<string | null>(null);
@@ -355,29 +352,24 @@ const templates = [
 
 // Methods
 function addNewPrompt() {
-  const newPrompts = [...prompts.value];
-  newPrompts.push({
+  wizardStore.prompts.push({
     content: '',
-    priority: newPrompts.length + 1,
+    priority: wizardStore.prompts.length + 1,
     targetType: 'GLOBAL',
     targetLines: { start: 1, end: 10 },
   });
-  prompts.value = newPrompts;
 }
 
 function removePrompt(index: number) {
-  const newPrompts = [...prompts.value];
-  newPrompts.splice(index, 1);
+  wizardStore.prompts.splice(index, 1);
   // Reorder priorities
-  newPrompts.forEach((p, i) => {
+  wizardStore.prompts.forEach((p, i) => {
     p.priority = i + 1;
   });
-  prompts.value = newPrompts;
 }
 
 function onTargetTypeChange(index: number) {
-  const newPrompts = [...prompts.value];
-  const prompt = newPrompts[index];
+  const prompt = wizardStore.prompts[index];
   if (!prompt) return;
 
   // Reset target-specific fields when type changes
@@ -390,8 +382,6 @@ function onTargetTypeChange(index: number) {
   } else {
     delete prompt.targetLines;
   }
-
-  prompts.value = newPrompts;
 }
 
 // Watch for targetFileId changes and auto-switch document viewer
@@ -408,13 +398,11 @@ watch(
 );
 
 function useTemplate(template: (typeof templates)[0]) {
-  const newPrompts = [...prompts.value];
-  newPrompts.push({
+  wizardStore.prompts.push({
     content: template.content,
-    priority: newPrompts.length + 1,
+    priority: wizardStore.prompts.length + 1,
     targetType: template.targetType,
   });
-  prompts.value = newPrompts;
 }
 
 function getPromptIcon(targetType: TargetType): string {

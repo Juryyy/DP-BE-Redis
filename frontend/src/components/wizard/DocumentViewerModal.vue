@@ -308,18 +308,30 @@ watch(currentFileId, (newFileId) => {
 watch(
   () => props.prompts,
   (newPrompts) => {
-    if (newPrompts) {
+    if (newPrompts && JSON.stringify(newPrompts) !== JSON.stringify(localPrompts.value)) {
       localPrompts.value = [...newPrompts];
     }
   },
   { deep: true, immediate: true }
 );
 
-// Emit prompt changes
+// Emit prompt changes with debounce to prevent infinite loops
+const emitPromptsDebounced = (() => {
+  let timeoutId: NodeJS.Timeout | null = null;
+  return (newPrompts: PromptInput[]) => {
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      if (JSON.stringify(newPrompts) !== JSON.stringify(props.prompts)) {
+        emit('update:prompts', newPrompts);
+      }
+    }, 100);
+  };
+})();
+
 watch(
   localPrompts,
   (newPrompts) => {
-    emit('update:prompts', newPrompts);
+    emitPromptsDebounced(newPrompts);
   },
   { deep: true }
 );
