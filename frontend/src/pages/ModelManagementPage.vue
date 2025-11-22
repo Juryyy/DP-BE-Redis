@@ -480,7 +480,7 @@ async function pullModel(modelId: string) {
       `${baseURL}/api/admin/models/pull/stream/${encodeURIComponent(modelId)}`
     );
 
-    eventSource.onmessage = (event) => {
+    eventSource.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data);
 
