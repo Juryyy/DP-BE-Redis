@@ -49,6 +49,49 @@
       </div>
     </div>
 
+    <!-- Previously Uploaded Files (from store) -->
+    <div v-if="hasUploadedFiles && selectedFiles.length === 0" class="uploaded-files q-mt-sm">
+      <div class="files-header q-mb-xs">
+        <span class="text-positive text-caption">
+          <q-icon name="check_circle" size="xs" class="q-mr-xs" />
+          {{ uploadedFiles.length }} file(s) already uploaded
+        </span>
+      </div>
+
+      <q-list bordered separator class="rounded-borders files-list uploaded-list">
+        <q-item v-for="file in uploadedFiles" :key="file.id" class="file-item">
+          <q-item-section avatar>
+            <q-icon
+              :name="getFileIcon(file.filename)"
+              :color="getFileColor(file.filename)"
+              size="sm"
+              class="file-icon"
+            />
+          </q-item-section>
+
+          <q-item-section>
+            <q-item-label class="text-weight-medium file-name">
+              {{ file.filename }}
+            </q-item-label>
+            <q-item-label caption class="file-details">
+              {{ formatFileSize(file.size) }} • {{ getFileExtension(file.filename).toUpperCase() }}
+              <span v-if="file.sections && file.sections.length > 0" class="q-ml-xs">
+                • {{ file.sections.length }} section(s)
+              </span>
+            </q-item-label>
+          </q-item-section>
+
+          <q-item-section side>
+            <q-badge color="positive" label="Uploaded" />
+          </q-item-section>
+        </q-item>
+      </q-list>
+
+      <p class="text-caption text-grey-6 q-mt-sm q-mb-none">
+        Click "Continue" to proceed with these files, or select new files to re-upload.
+      </p>
+    </div>
+
     <!-- Selected Files List -->
     <div v-if="selectedFiles.length > 0" class="selected-files q-mt-sm">
       <div class="files-header q-mb-xs">
@@ -118,7 +161,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import { api } from 'boot/axios';
 import type { UploadedFile } from 'src/types/file.types';
@@ -147,6 +190,29 @@ const uploadProgress = ref(0);
 const dragCounter = ref(0);
 const maxFileSize = 1024 * 1024 * 25; // 25MB
 const selectedFiles = ref<File[]>([]);
+
+// Track if we've already uploaded these files
+const hasUploadedFiles = computed(() => props.uploadedFiles.length > 0);
+
+// Check if current selection matches uploaded files
+const filesMatchUploaded = computed(() => {
+  if (!hasUploadedFiles.value || selectedFiles.value.length === 0) return false;
+  if (selectedFiles.value.length !== props.uploadedFiles.length) return false;
+
+  // Compare filenames and sizes
+  const selectedNames = new Set(selectedFiles.value.map(f => `${f.name}:${f.size}`));
+  const uploadedNames = new Set(props.uploadedFiles.map(f => `${f.filename}:${f.size}`));
+
+  return selectedNames.size === uploadedNames.size &&
+         [...selectedNames].every(name => uploadedNames.has(name));
+});
+
+// Initialize from uploaded files when component mounts or when navigating back
+onMounted(() => {
+  // If we have uploaded files in the store but no selected files locally,
+  // it means we're returning from a later step - no need to re-select
+  // Just show that files are already uploaded
+});
 
 // File handling methods
 const triggerFileInput = () => {
@@ -310,7 +376,54 @@ const clearAllFiles = () => {
 };
 
 const uploadFiles = async () => {
-  if (selectedFiles.value.length === 0) return;
+  // If no new files selected and we have uploaded files, reuse existing ones
+  if (selectedFiles.value.length === 0 && hasUploadedFiles.value) {
+    $q.notify({
+      type: 'info',
+      message: 'Using previously uploaded files',
+      icon: 'info',
+      position: 'bottom',
+      timeout: 2000,
+    });
+
+    // Emit existing files without re-uploading
+    emit('upload-success', {
+      sessionId: props.sessionId!,
+      files: props.uploadedFiles,
+    });
+    return;
+  }
+
+  // If new files match uploaded files exactly, reuse existing upload
+  if (filesMatchUploaded.value && props.sessionId) {
+    $q.notify({
+      type: 'info',
+      message: 'Files unchanged, using existing upload',
+      icon: 'check_circle',
+      position: 'bottom',
+      timeout: 2000,
+    });
+
+    emit('upload-success', {
+      sessionId: props.sessionId,
+      files: props.uploadedFiles,
+    });
+
+    selectedFiles.value = [];
+    fileModel.value = null;
+    return;
+  }
+
+  // Files have changed or new upload - upload all files
+  if (selectedFiles.value.length === 0) {
+    $q.notify({
+      type: 'warning',
+      message: 'Please select files to upload',
+      position: 'bottom',
+      timeout: 2000,
+    });
+    return;
+  }
 
   isUploading.value = true;
   uploadProgress.value = 0;
@@ -523,6 +636,11 @@ defineExpose({
   border-radius: 6px;
   overflow: hidden;
   border: 1px solid #e5e7eb;
+
+  &.uploaded-list {
+    border-color: #86efac;
+    background-color: #f0fdf4;
+  }
 }
 
 .file-item {
