@@ -484,8 +484,12 @@ async function pullModel(modelId: string) {
 
     const eventSource = new EventSource(sseUrl);
 
+    // Add readyState logging
+    console.log('EventSource initial state:', eventSource.readyState);
+
     eventSource.onopen = () => {
-      console.log('SSE connection opened');
+      console.log('SSE connection opened successfully!');
+      console.log('EventSource state:', eventSource.readyState);
     };
 
     eventSource.onmessage = async (event) => {
@@ -548,6 +552,16 @@ async function pullModel(modelId: string) {
 
     eventSource.onerror = (error) => {
       console.error('SSE connection error:', error);
+      console.error('EventSource readyState:', eventSource.readyState);
+      console.error('EventSource url:', eventSource.url);
+
+      // ReadyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
+      if (eventSource.readyState === 0) {
+        console.error('Connection never opened - still trying to connect');
+      } else if (eventSource.readyState === 2) {
+        console.error('Connection closed');
+      }
+
       eventSource.close();
       pullProgress.value.show = false;
       pullingModels.value[modelId] = false;
@@ -555,7 +569,7 @@ async function pullModel(modelId: string) {
       $q.notify({
         type: 'negative',
         message: 'Connection error',
-        caption: 'Failed to stream progress from server',
+        caption: 'Check browser console and Network tab for details',
         timeout: 5000,
       });
     };

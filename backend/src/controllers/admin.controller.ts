@@ -210,6 +210,8 @@ export class AdminController {
   static async pullModelWithProgress(req: Request, res: Response): Promise<void> {
     const { modelName } = req.params;
 
+    logger.info(`SSE pull request received for model: ${modelName}`);
+
     if (!modelName) {
       res.status(400).json({
         error: 'Bad Request',
@@ -220,6 +222,7 @@ export class AdminController {
 
     try {
       const baseUrl = AdminController.getLocalOllamaUrl();
+      logger.info(`Setting up SSE connection for ${modelName}, Ollama URL: ${baseUrl}`);
 
       // Set up SSE headers
       res.setHeader('Content-Type', 'text/event-stream');
@@ -229,6 +232,7 @@ export class AdminController {
 
       // Flush headers immediately
       res.flushHeaders();
+      logger.info(`SSE headers flushed for ${modelName}`);
 
       // Send initial connection message and flush
       res.write(`data: ${JSON.stringify({ type: 'connected', modelName, baseUrl })}\n\n`);
