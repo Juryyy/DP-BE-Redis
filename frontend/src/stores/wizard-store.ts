@@ -134,14 +134,31 @@ export const useWizardStore = defineStore('wizard', {
         if (response.data.success) {
           this.providers = response.data.data.providers;
           this.selectedProvider = response.data.data.default || 'ollama';
-          this.selectedModel = response.data.data.defaultModel || 'llama3.1:8b';
+          this.selectedModel = response.data.data.defaultModel || '';
+
+          // Only show error if no providers available at all
+          const hasAnyModels = Object.values(this.providers).some(
+            (p: any) => p.models && p.models.length > 0
+          );
+
+          if (!hasAnyModels) {
+            this.error = 'No models available. Please pull a model first (see console for instructions).';
+            console.warn('╔════════════════════════════════════════════════════════╗');
+            console.warn('║  NO MODELS AVAILABLE                                   ║');
+            console.warn('║  Please pull a model to get started:                   ║');
+            console.warn('║                                                        ║');
+            console.warn('║  docker exec -it dp-ollama ollama pull mistral:latest ║');
+            console.warn('║  OR                                                    ║');
+            console.warn('║  docker exec -it dp-ollama ollama pull llama3.2       ║');
+            console.warn('║                                                        ║');
+            console.warn('║  Then restart: docker-compose restart api             ║');
+            console.warn('╚════════════════════════════════════════════════════════╝');
+          }
         }
       } catch (error: unknown) {
         const err = error as ApiError;
         this.error = err.response?.data?.error || err.message || 'Failed to fetch models';
         console.error('Failed to fetch models:', error);
-        // Load mock data for development
-        this.loadMockProviders();
       } finally {
         this.isLoading = false;
       }

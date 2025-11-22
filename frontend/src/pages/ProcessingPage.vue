@@ -173,10 +173,10 @@ onUnmounted(() => {
 });
 
 function startPolling() {
-  // Poll every 1 second for status updates
+  // Poll every 2 seconds for status updates (reduce backend load)
   pollInterval.value = setInterval(async () => {
     await checkStatus();
-  }, 1000);
+  }, 2000);
 }
 
 async function checkStatus() {
