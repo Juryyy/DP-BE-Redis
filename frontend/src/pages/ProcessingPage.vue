@@ -100,6 +100,7 @@
           placeholder="Continue the conversation..."
           @keyup.enter="sendMessage"
           class="input-field"
+          :disable="isSendingMessage"
         >
           <template #append>
             <q-btn
@@ -109,12 +110,80 @@
               icon="send"
               color="primary"
               @click="sendMessage"
-              :disable="!userInput.trim()"
+              :disable="!userInput.trim() || isSendingMessage"
+              :loading="isSendingMessage"
             />
           </template>
         </q-input>
       </div>
     </div>
+
+    <!-- Model Selection Dialog -->
+    <q-dialog v-model="showModelSelector" persistent>
+      <q-card style="min-width: 400px">
+        <q-card-section class="bg-primary text-white">
+          <div class="text-h6">
+            <q-icon name="psychology" class="q-mr-sm" />
+            Select Models for Response
+          </div>
+          <div class="text-caption">Choose which AI models should respond to your message</div>
+        </q-card-section>
+
+        <q-card-section>
+          <div class="q-mb-md text-body2 text-grey-7">
+            Select one or more models to get different perspectives:
+          </div>
+
+          <!-- Available models from wizard store -->
+          <q-list>
+            <q-item
+              v-for="model in wizardStore.selectedModels"
+              :key="`${model.provider}-${model.model}`"
+              tag="label"
+              clickable
+            >
+              <q-item-section avatar>
+                <q-checkbox
+                  v-model="selectedChatModels"
+                  :val="{ provider: model.provider, model: model.model, enabled: true }"
+                  color="primary"
+                />
+              </q-item-section>
+
+              <q-item-section avatar>
+                <q-avatar :color="getProviderColor(model.provider)" text-color="white" size="sm">
+                  <q-icon :name="getProviderIcon(model.provider)" />
+                </q-avatar>
+              </q-item-section>
+
+              <q-item-section>
+                <q-item-label>{{ model.model }}</q-item-label>
+                <q-item-label caption>{{ getProviderLabel(model.provider) }}</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
+
+          <q-banner v-if="selectedChatModels.length === 0" class="bg-warning text-white q-mt-md" rounded>
+            <template #avatar>
+              <q-icon name="warning" />
+            </template>
+            Please select at least one model
+          </q-banner>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="grey-7" v-close-popup @click="userInput = ''" />
+          <q-btn
+            unelevated
+            label="Send to Selected Models"
+            color="primary"
+            icon="send"
+            @click="sendWithSelectedModels"
+            :disable="selectedChatModels.length === 0"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -149,6 +218,25 @@ const error = ref<string | null>(null);
 const statusText = ref('Starting processing...');
 const canContinue = ref(false);
 const pollInterval = ref<NodeJS.Timeout | null>(null);
+
+// Model selection for chat continuation
+const showModelSelector = ref(false);
+const selectedChatModels = ref<any[]>([]);
+const isSendingMessage = ref(false);
+
+// Multi-model responses
+interface MultiModelResponse {
+  provider: string;
+  modelName: string;
+  status: string;
+  result: string;
+  error?: string;
+  duration: number;
+  tokensUsed?: number;
+}
+
+const latestResponses = ref<MultiModelResponse[]>([]);
+const selectedResponseIndices = ref<Set<number>>(new Set());
 
 // Render markdown for messages
 const getRenderedMessage = (message: Message): string => {
@@ -321,17 +409,89 @@ async function fetchResults() {
 function sendMessage() {
   if (!userInput.value.trim()) return;
 
-  // Add user message
+  // Show model selection dialog
+  showModelSelector.value = true;
+}
+
+async function sendWithSelectedModels() {
+  if (!userInput.value.trim() || selectedChatModels.value.length === 0) return;
+
+  const messageContent = userInput.value;
+  showModelSelector.value = false;
+  isSendingMessage.value = true;
+
+  // Add user message to chat
   messages.value.push({
     type: 'user',
-    content: userInput.value,
+    content: messageContent,
     timestamp: new Date(),
   });
 
   userInput.value = '';
-  scrollToBottom();
 
-  // TODO: Send to backend for continuation
+  // Add loading message
+  messages.value.push({
+    type: 'ai',
+    content: `Processing with ${selectedChatModels.value.length} model(s)...`,
+    timestamp: new Date(),
+    isLoading: true,
+  });
+
+  await scrollToBottom();
+
+  try {
+    // Call continuation API
+    const response = await api.post(`/api/wizard/conversation/${wizardStore.sessionId}/continue`, {
+      message: messageContent,
+      models: selectedChatModels.value,
+      systemPrompt: 'You are a helpful AI assistant analyzing documents.',
+    });
+
+    // Remove loading message
+    messages.value = messages.value.filter((m) => !m.isLoading);
+
+    if (response.data.success) {
+      latestResponses.value = response.data.data.responses;
+      selectedResponseIndices.value.clear();
+
+      // Add all successful responses to chat
+      response.data.data.responses.forEach((resp: MultiModelResponse) => {
+        if (resp.status === 'completed') {
+          messages.value.push({
+            type: 'ai',
+            content: resp.result,
+            timestamp: new Date(),
+            model: `${resp.provider} (${resp.modelName})`,
+            duration: resp.duration,
+            tokens: resp.tokensUsed,
+          });
+        } else {
+          messages.value.push({
+            type: 'system',
+            content: `Error from ${resp.provider} (${resp.modelName}): ${resp.error}`,
+            timestamp: new Date(),
+            status: 'error',
+          });
+        }
+      });
+
+      await scrollToBottom();
+      statusText.value = `Received ${response.data.data.successCount} response(s)`;
+    }
+  } catch (err: any) {
+    // Remove loading message
+    messages.value = messages.value.filter((m) => !m.isLoading);
+
+    error.value = err.response?.data?.error || 'Failed to send message';
+    messages.value.push({
+      type: 'system',
+      content: `Error: ${error.value}`,
+      timestamp: new Date(),
+      status: 'error',
+    });
+  } finally {
+    isSendingMessage.value = false;
+  }
 }
 
 function formatTime(timestamp: Date): string {
