@@ -186,21 +186,30 @@ async function checkStatus() {
     const response = await api.get(`/api/wizard/status/${wizardStore.sessionId}`);
     const data = response.data;
 
+    console.log('Status response:', data);
+
     if (data.success) {
       statusText.value = data.data.status;
+      console.log('Session status:', data.data.status, 'Progress:', data.data.progress);
 
       // Check if processing is complete
       if (data.data.status === 'COMPLETED' || data.data.status === 'FAILED') {
+        console.log('Processing complete, stopping poll and fetching results...');
+
         if (pollInterval.value) {
           clearInterval(pollInterval.value);
           pollInterval.value = null;
         }
 
         // Remove loading message
+        const beforeCount = messages.value.length;
         messages.value = messages.value.filter(m => !m.isLoading);
+        console.log(`Removed loading messages: ${beforeCount} -> ${messages.value.length}`);
 
         // Fetch results
+        console.log('Calling fetchResults()...');
         await fetchResults();
+        console.log('fetchResults() completed, message count:', messages.value.length);
       }
     }
   } catch (err) {
@@ -209,27 +218,43 @@ async function checkStatus() {
 }
 
 async function fetchResults() {
-  if (!wizardStore.sessionId) return;
+  if (!wizardStore.sessionId) {
+    console.warn('fetchResults: No sessionId available');
+    return;
+  }
+
+  console.log('fetchResults: Fetching results for session:', wizardStore.sessionId);
 
   try {
     const response = await api.get(`/api/wizard/result/${wizardStore.sessionId}`);
     const data = response.data;
 
-    console.log('Fetched results:', data);
+    console.log('fetchResults: Full response:', JSON.stringify(data, null, 2));
+    console.log('fetchResults: data.success:', data.success);
+    console.log('fetchResults: data.data:', data.data);
 
     if (data.success && data.data) {
+      console.log('fetchResults: Checking result format...');
+      console.log('fetchResults: data.data.result exists?', !!data.data.result);
+      console.log('fetchResults: data.data.result.content exists?', !!(data.data.result && data.data.result.content));
+
       // Handle new result format (combined result)
       if (data.data.result && data.data.result.content) {
-        messages.value.push({
-          type: 'ai',
+        console.log('fetchResults: Adding AI message with content length:', data.data.result.content.length);
+        const newMessage = {
+          type: 'ai' as const,
           content: data.data.result.content,
           timestamp: new Date(data.data.result.createdAt || Date.now()),
           model: 'AI Model',
           isHtml: false,
-        });
+        };
+        console.log('fetchResults: New message object:', newMessage);
+        messages.value.push(newMessage);
+        console.log('fetchResults: Message added. Total messages:', messages.value.length);
       }
       // Handle legacy format (individual prompts) - fallback
       else if (Array.isArray(data.data.prompts)) {
+        console.log('fetchResults: Using legacy format, prompts count:', data.data.prompts.length);
         data.data.prompts.forEach((prompt: any) => {
           if (prompt.result) {
             messages.value.push({
@@ -249,16 +274,22 @@ async function fetchResults() {
             });
           }
         });
+        console.log('fetchResults: Added legacy messages. Total messages:', messages.value.length);
       } else {
-        console.warn('No results found in response:', data.data);
+        console.warn('fetchResults: No results found in response. Keys in data.data:', Object.keys(data.data));
       }
 
       statusText.value = 'Processing complete';
       canContinue.value = true;
+      console.log('fetchResults: Scrolling to bottom...');
       await scrollToBottom();
+      console.log('fetchResults: Complete');
+    } else {
+      console.warn('fetchResults: Response not successful or no data');
     }
   } catch (err: any) {
-    console.error('Error fetching results:', err);
+    console.error('fetchResults: Error:', err);
+    console.error('fetchResults: Error response:', err.response);
     error.value = err.response?.data?.error || 'Failed to fetch results';
     statusText.value = 'Error occurred';
   }
