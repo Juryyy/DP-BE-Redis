@@ -10,8 +10,8 @@
         <q-btn
           color="primary"
           icon="refresh"
-          label="Refresh Installed"
-          @click="refreshInstalledModels"
+          label="Sync & Refresh"
+          @click="async () => { await syncModels(); await refreshInstalledModels(); }"
           :loading="loading"
           unelevated
         />
@@ -380,9 +380,29 @@ const filteredModels = computed(() => {
   });
 });
 
-onMounted(() => {
-  refreshInstalledModels();
+onMounted(async () => {
+  // First sync Ollama with database to ensure accurate state
+  await syncModels();
+  // Then refresh to show current models
+  await refreshInstalledModels();
 });
+
+async function syncModels() {
+  try {
+    const response = await api.post('/api/admin/models/sync');
+    if (response.data.success) {
+      console.log('Models synced:', response.data.data);
+    }
+  } catch (error: any) {
+    console.error('Failed to sync models:', error);
+    $q.notify({
+      type: 'warning',
+      message: 'Could not sync models with Ollama',
+      caption: 'Database may be out of sync',
+      timeout: 3000,
+    });
+  }
+}
 
 async function refreshInstalledModels() {
   loading.value = true;
@@ -417,15 +437,22 @@ async function pullModel(modelId: string) {
       $q.notify({
         type: 'positive',
         message: `${modelId} is being downloaded`,
-        caption: 'Refresh in a minute to see it installed',
+        caption: 'Will auto-refresh when complete...',
         timeout: 5000,
       });
 
-      // Poll for completion
-      setTimeout(() => {
-        refreshInstalledModels();
+      // Poll for completion with sync
+      setTimeout(async () => {
+        await syncModels();
+        await refreshInstalledModels();
         pullingModels.value[modelId] = false;
-      }, 10000);
+
+        $q.notify({
+          type: 'positive',
+          message: `${modelId} installed successfully!`,
+          timeout: 3000,
+        });
+      }, 30000); // Wait 30 seconds for small models
     }
   } catch (error: any) {
     console.error('Failed to pull model:', error);

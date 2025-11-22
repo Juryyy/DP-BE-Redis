@@ -241,11 +241,25 @@ export class OllamaModelService {
         success: false,
         error: 'No response from model',
       };
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Model ${modelName} test failed:`, error);
+
+      // Handle axios errors properly to avoid circular JSON
+      let errorMessage = 'Unknown error';
+      if (error.response) {
+        // Axios error with response
+        errorMessage = error.response.data?.error || error.response.statusText || 'API error';
+      } else if (error.request) {
+        // Axios error without response (network issue)
+        errorMessage = 'Network error: Cannot reach Ollama';
+      } else if (error.message) {
+        // Regular error
+        errorMessage = error.message;
+      }
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errorMessage,
       };
     }
   }
