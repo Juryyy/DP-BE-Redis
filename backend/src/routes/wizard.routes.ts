@@ -13,6 +13,7 @@ import {
   ResultController,
   SessionController,
   FileController,
+  ConversationController,
 } from '../controllers';
 import { MultiModelController } from '../controllers/multi-model.controller';
 import {
@@ -137,6 +138,12 @@ router.post(
  * GET /api/wizard/conversation/:sessionId
  */
 router.get('/conversation/:sessionId', asyncHandler(SessionController.getConversation));
+
+/**
+ * Continue Conversation with Multi-Model
+ * POST /api/wizard/conversation/:sessionId/continue
+ */
+router.post('/conversation/:sessionId/continue', asyncHandler(ConversationController.continueConversation));
 
 /**
  * Get Session Details

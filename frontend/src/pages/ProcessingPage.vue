@@ -22,13 +22,6 @@
 
       <!-- Chat Messages -->
       <div class="chat-messages" ref="messagesContainer">
-        <!-- Debug Info -->
-        <div style="background: yellow; padding: 10px; margin: 10px; border: 2px solid red;">
-          DEBUG: Messages count = {{ messages.length }}
-          <br>
-          Messages: {{ messages.map(m => m.type).join(', ') }}
-        </div>
-
         <div
           v-for="(message, index) in messages"
           :key="index"
@@ -55,8 +48,14 @@
 
               <!-- Message Content -->
               <div class="message-content">
-                <div v-if="message.type === 'ai' && message.isHtml" v-html="message.content"></div>
-                <div v-else class="message-text">{{ message.content }}</div>
+                <!-- Render markdown for AI messages -->
+                <div
+                  v-if="message.type === 'ai' && !message.isLoading"
+                  class="message-text markdown-content"
+                  v-html="getRenderedMessage(message)"
+                ></div>
+                <!-- Plain text for user/system messages -->
+                <div v-else-if="!message.isLoading" class="message-text">{{ message.content }}</div>
 
                 <!-- Loading indicator -->
                 <div v-if="message.isLoading" class="loading-dots">
@@ -120,13 +119,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useWizardStore } from 'src/stores/wizard-store';
 import { api } from 'boot/axios';
+import { useMarkdown } from 'src/composables/useMarkdown';
+import 'highlight.js/styles/github-dark.css'; // Syntax highlighting theme
 
 const router = useRouter();
 const wizardStore = useWizardStore();
+const { renderMarkdown, hasMarkdown } = useMarkdown();
 
 interface Message {
   type: 'user' | 'ai' | 'system';
@@ -147,6 +149,14 @@ const error = ref<string | null>(null);
 const statusText = ref('Starting processing...');
 const canContinue = ref(false);
 const pollInterval = ref<NodeJS.Timeout | null>(null);
+
+// Render markdown for messages
+const getRenderedMessage = (message: Message): string => {
+  if (message.type === 'ai' && hasMarkdown(message.content)) {
+    return renderMarkdown(message.content);
+  }
+  return message.content;
+};
 
 // Add initial user prompts as messages
 onMounted(async () => {
@@ -532,6 +542,109 @@ function goBack() {
 @media (max-width: 768px) {
   .message-card {
     max-width: 85%;
+  }
+}
+
+/* Markdown Content Styling */
+.markdown-content {
+  :deep(h1), :deep(h2), :deep(h3), :deep(h4), :deep(h5), :deep(h6) {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  :deep(h1) { font-size: 1.75rem; border-bottom: 2px solid #e9ecef; padding-bottom: 0.5rem; }
+  :deep(h2) { font-size: 1.5rem; border-bottom: 1px solid #e9ecef; padding-bottom: 0.4rem; }
+  :deep(h3) { font-size: 1.25rem; }
+  :deep(h4) { font-size: 1.1rem; }
+
+  :deep(p) {
+    margin-bottom: 1rem;
+  }
+
+  :deep(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+    display: block;
+  }
+
+  :deep(thead) {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+
+  :deep(th) {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  :deep(td) {
+    padding: 0.75rem 1rem;
+    border: 1px solid #dee2e6;
+  }
+
+  :deep(tbody tr:nth-child(even)) {
+    background-color: #f8f9fa;
+  }
+
+  :deep(tbody tr:hover) {
+    background-color: #e9ecef;
+  }
+
+  :deep(code) {
+    background: #f4f4f4;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    color: #c7254e;
+  }
+
+  :deep(pre) {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  :deep(pre code) {
+    background: none;
+    color: inherit;
+    padding: 0;
+  }
+
+  :deep(ul), :deep(ol) {
+    margin-left: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  :deep(li) {
+    margin-bottom: 0.5rem;
+  }
+
+  :deep(blockquote) {
+    border-left: 4px solid #667eea;
+    padding-left: 1rem;
+    margin: 1rem 0;
+    color: #6c757d;
+    font-style: italic;
+  }
+
+  :deep(a) {
+    color: #667eea;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
   }
 }
 </style>

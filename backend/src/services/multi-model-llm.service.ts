@@ -37,7 +37,8 @@ export class MultiModelLLMService {
     prompt: string,
     systemPrompt: string,
     modelConfigs: ModelConfig[],
-    sessionId?: string
+    sessionId?: string,
+    conversationHistory?: any[]
   ): Promise<MultiModelResponse> {
     const startTime = Date.now();
     const enabledModels = modelConfigs.filter((config) => config.enabled !== false);
@@ -50,7 +51,7 @@ export class MultiModelLLMService {
 
     // Execute all models in parallel
     const promises = enabledModels.map((config) =>
-      this.executeSingleModel(prompt, systemPrompt, config, sessionId)
+      this.executeSingleModel(prompt, systemPrompt, config, sessionId, conversationHistory)
     );
 
     const results = await Promise.allSettled(promises);
@@ -99,7 +100,8 @@ export class MultiModelLLMService {
     prompt: string,
     systemPrompt: string,
     config: ModelConfig,
-    sessionId?: string
+    sessionId?: string,
+    conversationHistory?: any[]
   ): Promise<MultiModelResult> {
     const startTime = Date.now();
     const modelName = config.model || 'default';
@@ -122,8 +124,20 @@ export class MultiModelLLMService {
       // Create LLM service for this specific model
       const llmService = await createLLMService(config.provider, config.model, config.baseUrl);
 
-      // Execute the prompt
-      const response = await llmService.complete(prompt, systemPrompt);
+      // Execute the prompt - use chat method if conversation history provided
+      let response;
+      if (conversationHistory && conversationHistory.length > 0) {
+        // Build chat messages with history
+        const messages = [
+          { role: 'system' as const, content: systemPrompt },
+          ...conversationHistory,
+          { role: 'user' as const, content: prompt },
+        ];
+        response = await llmService.chat(messages);
+      } else {
+        // Use simple complete for first message
+        response = await llmService.complete(prompt, systemPrompt);
+      }
 
       const duration = Date.now() - startTime;
 
