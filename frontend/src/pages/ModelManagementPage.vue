@@ -500,6 +500,22 @@ async function pullModel(modelId: string) {
           pullProgress.value.percentage = data.percentage ?? 0;
           pullProgress.value.total = data.total ?? 0;
           pullProgress.value.completed = data.completed ?? 0;
+
+          // Handle "success" status from Ollama (treat as completion)
+          if (data.status === 'success') {
+            eventSource.close();
+            pullProgress.value.show = false;
+            pullingModels.value[modelId] = false;
+
+            $q.notify({
+              type: 'positive',
+              message: `${modelId} installed successfully!`,
+              timeout: 3000,
+            });
+
+            // Refresh installed models
+            await refreshInstalledModels();
+          }
         } else if (data.type === 'complete') {
           eventSource.close();
           pullProgress.value.show = false;
@@ -625,7 +641,12 @@ function formatStatus(status: string): string {
     'success': 'Download complete!',
   };
 
-  // Check if it's a downloading status
+  // Check if it's a pulling/downloading status (layer downloads)
+  if (status.startsWith('pulling ')) {
+    const digest = status.replace('pulling ', '').substring(0, 12);
+    return `Downloading layer ${digest}...`;
+  }
+
   if (status.includes('downloading')) {
     return 'Downloading model files...';
   }
