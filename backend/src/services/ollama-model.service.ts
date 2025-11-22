@@ -138,9 +138,9 @@ export class OllamaModelService {
     onProgress?: (progress: {
       status: string;
       digest?: string;
-      total?: number;
-      completed?: number;
-      percentage?: number;
+      total: number;
+      completed: number;
+      percentage: number;
     }) => void
   ): Promise<void> {
     const url = baseUrl || process.env.OLLAMA_BASE_URL || DEFAULT_PROVIDER_URLS.ollama;
@@ -179,6 +179,11 @@ export class OllamaModelService {
               try {
                 const data = JSON.parse(line);
 
+                // Log raw data for debugging
+                if (onProgress) {
+                  logger.debug(`Ollama pull data for ${modelName}:`, JSON.stringify(data));
+                }
+
                 if (data.error) {
                   reject(new Error(data.error));
                   return;
@@ -194,12 +199,13 @@ export class OllamaModelService {
                   const progress = {
                     status: data.status,
                     digest: data.digest,
-                    total: data.total,
-                    completed: data.completed,
-                    percentage,
+                    total: data.total || 0,
+                    completed: data.completed || 0,
+                    percentage: percentage || 0,
                   };
 
                   if (onProgress) {
+                    // Always send progress updates to frontend
                     onProgress(progress);
                   } else {
                     // Only log significant progress updates to reduce spam

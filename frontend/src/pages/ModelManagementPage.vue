@@ -487,10 +487,11 @@ async function pullModel(modelId: string) {
         if (data.type === 'connected') {
           pullProgress.value.status = 'Starting download...';
         } else if (data.type === 'progress') {
+          console.log('Progress update:', data); // Debug logging
           pullProgress.value.status = data.status || 'Downloading...';
-          pullProgress.value.percentage = data.percentage || 0;
-          pullProgress.value.total = data.total || 0;
-          pullProgress.value.completed = data.completed || 0;
+          pullProgress.value.percentage = data.percentage ?? 0;
+          pullProgress.value.total = data.total ?? 0;
+          pullProgress.value.completed = data.completed ?? 0;
         } else if (data.type === 'complete') {
           eventSource.close();
           pullProgress.value.show = false;
