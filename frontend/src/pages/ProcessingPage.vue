@@ -22,6 +22,13 @@
 
       <!-- Chat Messages -->
       <div class="chat-messages" ref="messagesContainer">
+        <!-- Debug Info -->
+        <div style="background: yellow; padding: 10px; margin: 10px; border: 2px solid red;">
+          DEBUG: Messages count = {{ messages.length }}
+          <br>
+          Messages: {{ messages.map(m => m.type).join(', ') }}
+        </div>
+
         <div
           v-for="(message, index) in messages"
           :key="index"
@@ -281,9 +288,15 @@ async function fetchResults() {
 
       statusText.value = 'Processing complete';
       canContinue.value = true;
+      console.log('fetchResults: Current messages array:', messages.value);
+      console.log('fetchResults: Messages is reactive?', messages.value.length);
       console.log('fetchResults: Scrolling to bottom...');
       await scrollToBottom();
       console.log('fetchResults: Complete');
+
+      // Force reactivity trigger
+      await nextTick();
+      console.log('fetchResults: After nextTick, messages count:', messages.value.length);
     } else {
       console.warn('fetchResults: Response not successful or no data');
     }
