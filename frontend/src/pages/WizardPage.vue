@@ -213,6 +213,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useWizardStore } from 'stores/wizard-store';
 import WizardStepper from 'components/wizard/WizardStepper.vue';
 import FileUploader from 'components/wizard/FileUploader.vue';
@@ -222,6 +223,7 @@ import ProcessingOptions from 'components/wizard/ProcessingOptions.vue';
 import type { ProviderOptions, AdditionalSettings } from 'src/types/ai.types';
 import type { FileUploadEvent } from 'src/types/file.types';
 
+const router = useRouter();
 const wizardStore = useWizardStore();
 const fileUploaderRef = ref<InstanceType<typeof FileUploader> | null>(null);
 
@@ -325,8 +327,11 @@ async function handleStartProcessing() {
     return;
   }
 
-  // Start processing with prompts
-  await wizardStore.startProcessing(prompts);
+  // Start processing with prompts (don't wait for completion)
+  wizardStore.startProcessing(prompts);
+
+  // Navigate to processing page
+  router.push('/processing');
 }
 
 function getProviderIcon(provider: string): string {
