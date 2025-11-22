@@ -227,15 +227,28 @@ export class AdminController {
       res.setHeader('Connection', 'keep-alive');
       res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
 
-      // Send initial connection message
+      // Flush headers immediately
+      res.flushHeaders();
+
+      // Send initial connection message and flush
       res.write(`data: ${JSON.stringify({ type: 'connected', modelName, baseUrl })}\n\n`);
+      if (res.flush) res.flush();
+
+      // Set up keep-alive interval to prevent timeout (every 15 seconds)
+      const keepAliveInterval = setInterval(() => {
+        res.write(`: keep-alive\n\n`);
+        if (res.flush) res.flush();
+      }, 15000);
 
       // Pull model with progress callback
       OllamaModelService.pullModel(modelName, baseUrl, undefined, (progress) => {
-        // Send progress event to client
+        // Send progress event to client and flush immediately
         res.write(`data: ${JSON.stringify({ type: 'progress', ...progress })}\n\n`);
+        if (res.flush) res.flush();
       })
         .then(async () => {
+          clearInterval(keepAliveInterval);
+
           // Sync models after successful pull
           await OllamaModelService.syncModelsFromOllama(baseUrl);
 
@@ -244,6 +257,8 @@ export class AdminController {
           res.end();
         })
         .catch((error) => {
+          clearInterval(keepAliveInterval);
+
           // Send error event
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           res.write(`data: ${JSON.stringify({ type: 'error', error: errorMessage })}\n\n`);
@@ -252,6 +267,7 @@ export class AdminController {
 
       // Handle client disconnect
       req.on('close', () => {
+        clearInterval(keepAliveInterval);
         logger.info(`Client disconnected from pull stream for ${modelName}`);
       });
     } catch (error) {
