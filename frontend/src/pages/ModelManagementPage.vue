@@ -478,20 +478,24 @@ async function pullModel(modelId: string) {
   };
 
   try {
-    // Use SSE to stream progress
-    const baseURL = api.defaults.baseURL || '';
-    const eventSource = new EventSource(
-      `${baseURL}/api/admin/models/pull/stream/${encodeURIComponent(modelId)}`
-    );
+    // Construct SSE URL - use window.location.origin for proper absolute URL
+    const sseUrl = `${window.location.origin}/api/admin/models/pull/stream/${encodeURIComponent(modelId)}`;
+    console.log('Connecting to SSE:', sseUrl);
+
+    const eventSource = new EventSource(sseUrl);
+
+    eventSource.onopen = () => {
+      console.log('SSE connection opened');
+    };
 
     eventSource.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log('Progress update:', data); // Debug logging
 
         if (data.type === 'connected') {
           pullProgress.value.status = 'Starting download...';
         } else if (data.type === 'progress') {
-          console.log('Progress update:', data); // Debug logging
           pullProgress.value.status = data.status || 'Downloading...';
           pullProgress.value.percentage = data.percentage ?? 0;
           pullProgress.value.total = data.total ?? 0;
@@ -582,7 +586,20 @@ async function testModel(modelName: string) {
 }
 
 function isInstalled(modelId: string): boolean {
-  return installedModels.value.some((m) => m.name === modelId);
+  // Normalize model names for comparison (remove :latest suffix if present)
+  const normalizeModelName = (name: string) => {
+    return name.replace(':latest', '').toLowerCase();
+  };
+
+  const normalizedId = normalizeModelName(modelId);
+
+  return installedModels.value.some((m) => {
+    const normalizedInstalled = normalizeModelName(m.name);
+    // Check if names match exactly or if one starts with the other
+    return normalizedInstalled === normalizedId ||
+           normalizedInstalled.startsWith(normalizedId + ':') ||
+           normalizedId.startsWith(normalizedInstalled + ':');
+  });
 }
 
 function formatSize(bytes: number): string {
