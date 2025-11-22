@@ -454,6 +454,16 @@ async function sendWithSelectedModels() {
       latestResponses.value = response.data.data.responses;
       selectedResponseIndices.value.clear();
 
+      // Show context warnings if any
+      if (response.data.data.contextWarnings && response.data.data.contextWarnings.length > 0) {
+        messages.value.push({
+          type: 'system',
+          content: `⚠️ Context Window Warnings:\n${response.data.data.contextWarnings.join('\n')}`,
+          timestamp: new Date(),
+          status: 'warning',
+        });
+      }
+
       // Add all successful responses to chat
       response.data.data.responses.forEach((resp: MultiModelResponse) => {
         if (resp.status === 'completed') {
@@ -468,7 +478,7 @@ async function sendWithSelectedModels() {
         } else {
           messages.value.push({
             type: 'system',
-            content: `Error from ${resp.provider} (${resp.modelName}): ${resp.error}`,
+            content: `❌ Error from ${resp.provider} (${resp.modelName}): ${resp.error}`,
             timestamp: new Date(),
             status: 'error',
           });

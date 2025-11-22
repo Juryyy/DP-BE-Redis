@@ -6,6 +6,7 @@
 import { Request, Response } from 'express';
 import { ConversationService } from '../services/conversation.service';
 import { MultiModelLLMService, ModelConfig } from '../services/multi-model-llm.service';
+import { ContextWindowService } from '../services/context-window.service';
 import { ConversationRole, ConversationType } from '@prisma/client';
 import { logger } from '../utils/logger';
 import prisma from '../config/database';
@@ -58,20 +59,68 @@ export class ConversationController {
       );
 
       logger.info(`User sent message in session ${sessionId} to ${models.length} model(s)`);
+      logger.info(`Models to query: ${JSON.stringify(models.map((m: any) => `${m.provider}:${m.model}`))}`);
 
       // Get conversation history for context
-      const conversationHistory = await ConversationService.getConversationHistory(sessionId, 20);
+      const conversationHistory = await ConversationService.getConversationHistory(sessionId, 50);
       const chatMessages = ConversationService.toChatMessages(conversationHistory);
 
-      // Execute with multiple models
+      logger.info(`Conversation history: ${chatMessages.length} messages`);
+
+      const effectiveSystemPrompt =
+        systemPrompt || 'You are a helpful AI assistant analyzing documents.';
+
+      // Check context window and prepare conversation for each model
+      const contextWarnings: string[] = [];
+      const preparedConversations = new Map<string, any>();
+
+      for (const model of models) {
+        const modelKey = `${model.provider}:${model.model}`;
+        const prepared = ContextWindowService.prepareConversation(
+          model.provider,
+          model.model,
+          chatMessages,
+          effectiveSystemPrompt,
+          message
+        );
+
+        preparedConversations.set(modelKey, prepared);
+
+        if (prepared.warnings.length > 0) {
+          logger.warn(`Context warnings for ${modelKey}:`, prepared.warnings);
+          contextWarnings.push(...prepared.warnings.map((w) => `${modelKey}: ${w}`));
+        }
+
+        logger.info(
+          `${modelKey} context: ${prepared.tokenCount.total} tokens (${prepared.messages.length} messages)`
+        );
+      }
+
+      // Use the most restrictive conversation history (smallest that fits all models)
+      // For simplicity, use the first model's prepared conversation
+      const firstModelKey = `${models[0].provider}:${models[0].model}`;
+      const preparedConversation = preparedConversations.get(firstModelKey);
+
+      if (preparedConversation?.tokenCount.exceeds) {
+        logger.error('Context window exceeded even after truncation');
+      }
+
+      // Execute with multiple models using truncated history
       const modelConfigs: ModelConfig[] = models;
       const result = await MultiModelLLMService.executeMultiModel(
         message,
-        systemPrompt || 'You are a helpful AI assistant analyzing documents.',
+        effectiveSystemPrompt,
         modelConfigs,
         sessionId,
-        chatMessages // Include conversation history
+        preparedConversation?.messages || chatMessages // Use truncated if needed
       );
+
+      logger.info(`Multi-model execution complete: ${result.successCount} succeeded, ${result.failureCount} failed`);
+
+      // Log each model result
+      result.results.forEach((r, index) => {
+        logger.info(`Model ${index + 1} (${r.provider}:${r.modelName}): ${r.status} - ${r.error || 'success'}`);
+      });
 
       // Add each model's response to conversation history
       for (const modelResult of result.results) {
@@ -108,6 +157,7 @@ export class ConversationController {
           totalDuration: result.totalDuration,
           successCount: result.successCount,
           failureCount: result.failureCount,
+          contextWarnings: contextWarnings.length > 0 ? contextWarnings : undefined,
         },
       });
     } catch (error) {
