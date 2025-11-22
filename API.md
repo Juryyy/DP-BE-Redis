@@ -579,6 +579,167 @@ curl -X POST http://localhost:3000/api/wizard/result/confirm \
 
 ---
 
+### 11. Get Available AI Models
+
+Retrieve all available AI models and their configuration.
+
+**Endpoint:** `GET /models`
+
+**Example:**
+```bash
+curl http://localhost:3000/api/wizard/models
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "providers": {
+      "ollama": {
+        "type": "local",
+        "available": true,
+        "models": [
+          {
+            "id": "llama3.1:8b",
+            "name": "Llama 3.1 8B",
+            "contextWindow": 8192,
+            "recommended": true
+          },
+          {
+            "id": "llama3.1:70b",
+            "name": "Llama 3.1 70B",
+            "contextWindow": 8192
+          }
+        ],
+        "baseUrl": "http://localhost:11434"
+      },
+      "openai": {
+        "type": "api",
+        "available": true,
+        "requiresApiKey": true,
+        "models": [
+          {
+            "id": "gpt-4-turbo-preview",
+            "name": "GPT-4 Turbo",
+            "contextWindow": 128000,
+            "costPer1kTokens": 0.01
+          },
+          {
+            "id": "gpt-3.5-turbo",
+            "name": "GPT-3.5 Turbo",
+            "contextWindow": 16385,
+            "costPer1kTokens": 0.0005
+          }
+        ]
+      },
+      "anthropic": {
+        "type": "api",
+        "available": true,
+        "requiresApiKey": true,
+        "models": [
+          {
+            "id": "claude-3-5-sonnet-20241022",
+            "name": "Claude 3.5 Sonnet",
+            "contextWindow": 200000,
+            "costPer1kTokens": 0.003
+          }
+        ]
+      },
+      "gemini": {
+        "type": "api",
+        "available": false,
+        "requiresApiKey": true,
+        "models": [
+          {
+            "id": "gemini-1.5-pro",
+            "name": "Gemini 1.5 Pro",
+            "contextWindow": 1000000,
+            "costPer1kTokens": 0.00125
+          }
+        ]
+      }
+    },
+    "default": "ollama",
+    "defaultModel": "llama3.1:8b"
+  }
+}
+```
+
+---
+
+### 12. Configure AI Provider
+
+Set the AI provider and model for processing.
+
+**Endpoint:** `POST /models/configure`
+
+**Request Body:**
+```json
+{
+  "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+  "provider": "openai",
+  "model": "gpt-4-turbo-preview",
+  "apiKey": "sk-...", // Optional, if not already configured
+  "options": {
+    "temperature": 0.7,
+    "maxTokens": 4096,
+    "topP": 1.0
+  }
+}
+```
+
+**Provider Types:**
+- `local`: Runs locally (Ollama)
+- `api`: Cloud API with API key (OpenAI, Anthropic, Gemini)
+- `remote`: Self-hosted remote (e.g., Ollama on remote server)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+    "provider": "openai",
+    "model": "gpt-4-turbo-preview",
+    "configured": true,
+    "estimatedCost": 0.15
+  }
+}
+```
+
+---
+
+### 13. Test AI Connection
+
+Test connectivity to an AI provider.
+
+**Endpoint:** `POST /models/test`
+
+**Request Body:**
+```json
+{
+  "provider": "ollama",
+  "baseUrl": "http://localhost:11434",
+  "model": "llama3.1:8b"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "provider": "ollama",
+    "connected": true,
+    "responseTime": 245,
+    "modelLoaded": true
+  }
+}
+```
+
+---
+
 ## WebSocket Support (Future)
 
 Real-time updates for:

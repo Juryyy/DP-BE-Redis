@@ -12,6 +12,7 @@ import {
   ClarificationController,
   ResultController,
   SessionController,
+  FileController,
 } from '../controllers';
 import { MultiModelController } from '../controllers/multi-model.controller';
 import {
@@ -56,6 +57,12 @@ router.post(
   validateBody(uploadFilesSchema),
   asyncHandler(UploadController.uploadFiles)
 );
+
+/**
+ * View/Download File
+ * GET /api/wizard/files/:fileId
+ */
+router.get('/files/:fileId', asyncHandler(FileController.getFile));
 
 // ==================== PROMPTS ====================
 

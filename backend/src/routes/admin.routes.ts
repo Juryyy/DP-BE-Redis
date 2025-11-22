@@ -9,6 +9,14 @@ import { asyncHandler } from '../middlewares';
 
 const router = express.Router();
 
+// ==================== AI PROVIDERS ====================
+
+/**
+ * Get all available AI providers with models and metadata
+ * GET /api/admin/models/providers
+ */
+router.get('/models/providers', asyncHandler(AdminController.getProviders));
+
 // ==================== LOCAL OLLAMA MODEL MANAGEMENT ====================
 
 /**
