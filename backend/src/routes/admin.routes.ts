@@ -56,6 +56,12 @@ router.post('/models/test', asyncHandler(AdminController.testModel));
 router.post('/models/pull', asyncHandler(AdminController.pullModel));
 
 /**
+ * Pull/download a model with SSE progress streaming
+ * GET /api/admin/models/pull/stream/:modelName
+ */
+router.get('/models/pull/stream/:modelName', asyncHandler(AdminController.pullModelWithProgress));
+
+/**
  * Update model configuration
  * PATCH /api/admin/models/:id
  */

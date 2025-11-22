@@ -204,6 +204,66 @@ export class AdminController {
   }
 
   /**
+   * Pull/download a model with SSE progress streaming
+   * GET /api/admin/models/pull/stream/:modelName
+   */
+  static async pullModelWithProgress(req: Request, res: Response): Promise<void> {
+    const { modelName } = req.params;
+
+    if (!modelName) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'modelName is required',
+      });
+      return;
+    }
+
+    try {
+      const baseUrl = AdminController.getLocalOllamaUrl();
+
+      // Set up SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+
+      // Send initial connection message
+      res.write(`data: ${JSON.stringify({ type: 'connected', modelName, baseUrl })}\n\n`);
+
+      // Pull model with progress callback
+      OllamaModelService.pullModel(modelName, baseUrl, undefined, (progress) => {
+        // Send progress event to client
+        res.write(`data: ${JSON.stringify({ type: 'progress', ...progress })}\n\n`);
+      })
+        .then(async () => {
+          // Sync models after successful pull
+          await OllamaModelService.syncModelsFromOllama(baseUrl);
+
+          // Send completion event
+          res.write(`data: ${JSON.stringify({ type: 'complete', modelName })}\n\n`);
+          res.end();
+        })
+        .catch((error) => {
+          // Send error event
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          res.write(`data: ${JSON.stringify({ type: 'error', error: errorMessage })}\n\n`);
+          res.end();
+        });
+
+      // Handle client disconnect
+      req.on('close', () => {
+        logger.info(`Client disconnected from pull stream for ${modelName}`);
+      });
+    } catch (error) {
+      logger.error('Error initiating model pull with progress:', error);
+      res.status(500).json({
+        error: 'Failed to pull model',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
    * Update model configuration
    * PATCH /api/admin/models/:id
    */

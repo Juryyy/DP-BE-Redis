@@ -131,11 +131,24 @@ export class OllamaModelService {
   /**
    * Pull/download a model from Ollama
    */
-  static async pullModel(modelName: string, baseUrl?: string, headers?: Record<string, string>): Promise<void> {
+  static async pullModel(
+    modelName: string,
+    baseUrl?: string,
+    headers?: Record<string, string>,
+    onProgress?: (progress: {
+      status: string;
+      digest?: string;
+      total?: number;
+      completed?: number;
+      percentage?: number;
+    }) => void
+  ): Promise<void> {
     const url = baseUrl || process.env.OLLAMA_BASE_URL || DEFAULT_PROVIDER_URLS.ollama;
 
     try {
-      logger.info(`Pulling model ${modelName} from Ollama...`);
+      if (!onProgress) {
+        logger.info(`Pulling model ${modelName} from Ollama...`);
+      }
 
       // Ollama pull is a streaming endpoint, we need to handle it differently
       const response = await axios.post(
@@ -150,25 +163,66 @@ export class OllamaModelService {
 
       // Stream the response
       return new Promise((resolve, reject) => {
+        let buffer = '';
+
         response.data.on('data', (chunk: Buffer) => {
           try {
-            const line = chunk.toString();
-            const data = JSON.parse(line);
+            buffer += chunk.toString();
+            const lines = buffer.split('\n');
 
-            if (data.status) {
-              logger.info(`Pull ${modelName}: ${data.status}`);
-            }
+            // Keep the last incomplete line in the buffer
+            buffer = lines.pop() || '';
 
-            if (data.error) {
-              reject(new Error(data.error));
+            for (const line of lines) {
+              if (!line.trim()) continue;
+
+              try {
+                const data = JSON.parse(line);
+
+                if (data.error) {
+                  reject(new Error(data.error));
+                  return;
+                }
+
+                if (data.status) {
+                  // Calculate percentage if total and completed are available
+                  let percentage: number | undefined;
+                  if (data.total && data.completed) {
+                    percentage = Math.round((data.completed / data.total) * 100);
+                  }
+
+                  const progress = {
+                    status: data.status,
+                    digest: data.digest,
+                    total: data.total,
+                    completed: data.completed,
+                    percentage,
+                  };
+
+                  if (onProgress) {
+                    onProgress(progress);
+                  } else {
+                    // Only log significant progress updates to reduce spam
+                    if (percentage !== undefined && percentage % 10 === 0) {
+                      logger.info(`Pull ${modelName}: ${data.status} - ${percentage}%`);
+                    } else if (!data.total) {
+                      logger.info(`Pull ${modelName}: ${data.status}`);
+                    }
+                  }
+                }
+              } catch (parseError) {
+                // Ignore JSON parse errors for partial lines
+              }
             }
           } catch (e) {
-            // Ignore JSON parse errors for partial chunks
+            // Ignore chunk processing errors
           }
         });
 
         response.data.on('end', () => {
-          logger.info(`Model ${modelName} pulled successfully`);
+          if (!onProgress) {
+            logger.info(`Model ${modelName} pulled successfully`);
+          }
           resolve();
         });
 

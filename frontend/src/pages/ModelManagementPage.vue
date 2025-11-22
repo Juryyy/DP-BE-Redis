@@ -190,6 +190,38 @@
         </div>
       </div>
     </div>
+
+    <!-- Progress Dialog -->
+    <q-dialog v-model="pullProgress.show" persistent>
+      <q-card style="min-width: 400px">
+        <q-card-section>
+          <div class="text-h6 q-mb-md">
+            <q-icon name="cloud_download" color="primary" class="q-mr-sm" />
+            Pulling {{ pullProgress.modelName }}
+          </div>
+          <div class="text-body2 text-grey-7 q-mb-md">
+            {{ pullProgress.status }}
+          </div>
+          <q-linear-progress
+            :value="pullProgress.percentage / 100"
+            color="primary"
+            size="20px"
+            class="q-mb-sm"
+          >
+            <div class="absolute-full flex flex-center">
+              <q-badge
+                color="white"
+                text-color="primary"
+                :label="pullProgress.percentage > 0 ? `${pullProgress.percentage}%` : 'Starting...'"
+              />
+            </div>
+          </q-linear-progress>
+          <div v-if="pullProgress.total > 0" class="text-caption text-grey-6 text-center">
+            {{ formatBytes(pullProgress.completed) }} / {{ formatBytes(pullProgress.total) }}
+          </div>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -227,6 +259,16 @@ const familyFilter = ref('all');
 const loading = ref(false);
 const installedModels = ref<InstalledModel[]>([]);
 const pullingModels = ref<Record<string, boolean>>({});
+
+// Progress tracking
+const pullProgress = ref({
+  show: false,
+  modelName: '',
+  status: '',
+  percentage: 0,
+  total: 0,
+  completed: 0,
+});
 
 // Popular Ollama models curated list
 const availableModels: AvailableModel[] = [
@@ -421,47 +463,88 @@ async function refreshInstalledModels() {
 async function pullModel(modelId: string) {
   pullingModels.value[modelId] = true;
 
-  $q.notify({
-    type: 'info',
-    message: `Started pulling ${modelId}`,
-    caption: 'This may take a few minutes...',
-    timeout: 3000,
-  });
+  // Show progress dialog
+  pullProgress.value = {
+    show: true,
+    modelName: modelId,
+    status: 'Connecting...',
+    percentage: 0,
+    total: 0,
+    completed: 0,
+  };
 
   try {
-    const response = await api.post('/api/admin/models/pull', {
-      modelName: modelId,
-    });
+    // Use SSE to stream progress
+    const baseURL = api.defaults.baseURL || '';
+    const eventSource = new EventSource(
+      `${baseURL}/api/admin/models/pull/stream/${encodeURIComponent(modelId)}`
+    );
 
-    if (response.data.success) {
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'connected') {
+          pullProgress.value.status = 'Starting download...';
+        } else if (data.type === 'progress') {
+          pullProgress.value.status = data.status || 'Downloading...';
+          pullProgress.value.percentage = data.percentage || 0;
+          pullProgress.value.total = data.total || 0;
+          pullProgress.value.completed = data.completed || 0;
+        } else if (data.type === 'complete') {
+          eventSource.close();
+          pullProgress.value.show = false;
+          pullingModels.value[modelId] = false;
+
+          $q.notify({
+            type: 'positive',
+            message: `${modelId} installed successfully!`,
+            timeout: 3000,
+          });
+
+          // Refresh installed models
+          await refreshInstalledModels();
+        } else if (data.type === 'error') {
+          eventSource.close();
+          pullProgress.value.show = false;
+          pullingModels.value[modelId] = false;
+
+          $q.notify({
+            type: 'negative',
+            message: 'Failed to pull model',
+            caption: data.error || 'Unknown error',
+            timeout: 5000,
+          });
+        }
+      } catch (error) {
+        console.error('Error parsing SSE message:', error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error);
+      eventSource.close();
+      pullProgress.value.show = false;
+      pullingModels.value[modelId] = false;
+
       $q.notify({
-        type: 'positive',
-        message: `${modelId} is being downloaded`,
-        caption: 'Will auto-refresh when complete...',
+        type: 'negative',
+        message: 'Connection error',
+        caption: 'Failed to stream progress from server',
         timeout: 5000,
       });
-
-      // Poll for completion (backend auto-syncs when fetching)
-      setTimeout(async () => {
-        await refreshInstalledModels();
-        pullingModels.value[modelId] = false;
-
-        $q.notify({
-          type: 'positive',
-          message: `${modelId} installed successfully!`,
-          timeout: 3000,
-        });
-      }, 30000); // Wait 30 seconds for small models
-    }
+    };
   } catch (error: any) {
     console.error('Failed to pull model:', error);
+    pullProgress.value.show = false;
+    pullingModels.value[modelId] = false;
+
     $q.notify({
       type: 'negative',
       message: 'Failed to pull model',
-      caption: error.response?.data?.message || 'Unknown error',
+      caption: error.message || 'Unknown error',
       timeout: 5000,
     });
-    pullingModels.value[modelId] = false;
   }
 }
 
@@ -500,6 +583,14 @@ function isInstalled(modelId: string): boolean {
 function formatSize(bytes: number): string {
   const gb = bytes / (1024 * 1024 * 1024);
   return `${gb.toFixed(1)}GB`;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
 }
 
 function getSpeedColor(speed: string): string {
