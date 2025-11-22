@@ -10,11 +10,13 @@
         <q-btn
           color="primary"
           icon="refresh"
-          label="Sync & Refresh"
-          @click="async () => { await syncModels(); await refreshInstalledModels(); }"
+          label="Refresh"
+          @click="refreshInstalledModels"
           :loading="loading"
           unelevated
-        />
+        >
+          <q-tooltip>Auto-syncs with Ollama</q-tooltip>
+        </q-btn>
       </div>
 
       <!-- Search and Filters -->
@@ -381,9 +383,7 @@ const filteredModels = computed(() => {
 });
 
 onMounted(async () => {
-  // First sync Ollama with database to ensure accurate state
-  await syncModels();
-  // Then refresh to show current models
+  // Backend auto-syncs with Ollama when fetching models
   await refreshInstalledModels();
 });
 
@@ -441,9 +441,8 @@ async function pullModel(modelId: string) {
         timeout: 5000,
       });
 
-      // Poll for completion with sync
+      // Poll for completion (backend auto-syncs when fetching)
       setTimeout(async () => {
-        await syncModels();
         await refreshInstalledModels();
         pullingModels.value[modelId] = false;
 

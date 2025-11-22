@@ -69,36 +69,55 @@ export class AdminController {
   /**
    * List all models from database
    * GET /api/admin/models
+   * Query params: includeUnavailable, checkAvailability
    */
   static async listModels(req: Request, res: Response): Promise<void> {
     const includeUnavailable = req.query.includeUnavailable === 'true';
+    const checkAvailability = req.query.checkAvailability !== 'false'; // Default true
 
-    const models = await OllamaModelService.getAllModels(includeUnavailable);
+    try {
+      // Optionally sync with Ollama first to ensure fresh data
+      if (checkAvailability) {
+        try {
+          await OllamaModelService.syncModelsFromOllama();
+        } catch (error) {
+          logger.warn('Could not sync with Ollama during listModels, using cached data');
+        }
+      }
 
-    res.json({
-      success: true,
-      data: {
-        models: models.map((m) => ({
-          id: m.id,
-          name: m.name,
-          displayName: m.displayName,
-          family: m.family,
-          parameterSize: m.parameterSize,
-          quantization: m.quantization,
-          size: m.size ? m.size.toString() : null,
-          isAvailable: m.isAvailable,
-          isEnabled: m.isEnabled,
-          priority: m.priority,
-          maxTokens: m.maxTokens,
-          temperature: m.temperature,
-          contextWindow: m.contextWindow,
-          usageCount: m.usageCount,
-          lastUsed: m.lastUsed,
-          lastChecked: m.lastChecked,
-          createdAt: m.createdAt,
-        })),
-      },
-    });
+      const models = await OllamaModelService.getAllModels(includeUnavailable);
+
+      res.json({
+        success: true,
+        data: {
+          models: models.map((m) => ({
+            id: m.id,
+            name: m.name,
+            displayName: m.displayName,
+            family: m.family,
+            parameterSize: m.parameterSize,
+            quantization: m.quantization,
+            size: m.size ? m.size.toString() : null,
+            isAvailable: m.isAvailable,
+            isEnabled: m.isEnabled,
+            priority: m.priority,
+            maxTokens: m.maxTokens,
+            temperature: m.temperature,
+            contextWindow: m.contextWindow,
+            usageCount: m.usageCount,
+            lastUsed: m.lastUsed,
+            lastChecked: m.lastChecked,
+            createdAt: m.createdAt,
+          })),
+        },
+      });
+    } catch (error) {
+      logger.error('Error listing models:', error);
+      res.status(500).json({
+        error: 'Failed to list models',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
 
   /**
@@ -655,9 +674,17 @@ export class AdminController {
     try {
       const providers: any = {};
 
-      // Local Ollama
+      // Local Ollama - Always sync first for fresh data
       try {
         const baseUrl = AdminController.getLocalOllamaUrl();
+
+        // Sync with Ollama to get latest model list
+        try {
+          await OllamaModelService.syncModelsFromOllama(baseUrl);
+        } catch (syncError) {
+          logger.warn('Could not sync with Ollama, using cached data:', syncError instanceof Error ? syncError.message : 'Unknown error');
+        }
+
         const models = await OllamaModelService.getAllModels(false);
         const availableModels = models.filter(m => m.isAvailable && m.isEnabled);
 
