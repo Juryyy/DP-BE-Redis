@@ -35,6 +35,7 @@ export interface WizardState {
   // Step 3: Prompt
   promptText: string;
   selectedTemplate: string | null;
+  prompts: PromptInput[];
 
   // Step 4: Processing Options
   processingMode: ProcessingMode;
@@ -72,6 +73,7 @@ export const useWizardStore = defineStore('wizard', {
 
     promptText: '',
     selectedTemplate: null,
+    prompts: [],
 
     processingMode: 'standard',
     outputFormat: 'rich_text',
@@ -406,6 +408,10 @@ export const useWizardStore = defineStore('wizard', {
       if (templates[templateId]) {
         this.promptText = templates[templateId];
       }
+    },
+
+    setPrompts(prompts: PromptInput[]) {
+      this.prompts = prompts;
     },
 
     nextStep() {

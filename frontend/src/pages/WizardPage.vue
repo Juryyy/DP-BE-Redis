@@ -45,7 +45,7 @@
           </template>
 
           <template #step3>
-            <PromptBuilder ref="promptBuilderRef" />
+            <PromptBuilder />
           </template>
 
           <template #step4>
@@ -224,7 +224,6 @@ import type { FileUploadEvent } from 'src/types/file.types';
 
 const wizardStore = useWizardStore();
 const fileUploaderRef = ref<InstanceType<typeof FileUploader> | null>(null);
-const promptBuilderRef = ref<InstanceType<typeof PromptBuilder> | null>(null);
 
 const showError = computed({
   get: () => !!wizardStore.error,
@@ -246,8 +245,8 @@ const canContinue = computed(() => {
 
 const processingSummary = computed(() => ({
   files: `${wizardStore.uploadedFiles.length} file(s)`,
-  task: promptBuilderRef.value?.prompts.length
-    ? `${promptBuilderRef.value.prompts.length} prompt(s) configured`
+  task: wizardStore.prompts.length
+    ? `${wizardStore.prompts.length} prompt(s) configured`
     : 'No prompts yet',
   mode: wizardStore.processingMode,
   format: wizardStore.outputFormat,
@@ -296,19 +295,35 @@ function handleSettingsUpdate(settings: AdditionalSettings) {
 }
 
 async function handleStartProcessing() {
+  // Get prompts from store
+  const prompts = wizardStore.prompts;
+
   // Validate prompts
-  if (!promptBuilderRef.value) {
-    wizardStore.error = 'Prompt builder not initialized';
+  if (!prompts || prompts.length === 0) {
+    wizardStore.error = 'Please add at least one prompt before processing';
     return;
   }
 
-  if (!promptBuilderRef.value.validate()) {
+  // Validate prompt contents
+  const hasInvalidPrompt = prompts.some((p) => {
+    const hasContent = !!p.content;
+    const hasPriority = typeof p.priority === 'number' && p.priority >= 0;
+    const hasTargetFile =
+      p.targetType !== 'FILE_SPECIFIC' && p.targetType !== 'LINE_SPECIFIC'
+        ? true
+        : !!p.targetFileId;
+    const hasTargetSection = p.targetType !== 'SECTION_SPECIFIC' ? true : !!p.targetSection;
+    const hasValidLines =
+      p.targetType !== 'LINE_SPECIFIC' ? true :
+      !!(p.targetLines && p.targetLines.start >= 1 && p.targetLines.end >= p.targetLines.start);
+
+    return !(hasContent && hasPriority && hasTargetFile && hasTargetSection && hasValidLines);
+  });
+
+  if (hasInvalidPrompt) {
     wizardStore.error = 'Please ensure all prompts are properly configured';
     return;
   }
-
-  // Get prompts from builder
-  const prompts = promptBuilderRef.value.getPrompts();
 
   // Start processing with prompts
   await wizardStore.startProcessing(prompts);

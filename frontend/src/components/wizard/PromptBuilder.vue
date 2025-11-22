@@ -252,7 +252,9 @@
       v-model="showViewerModal"
       :files="wizardStore.uploadedFiles"
       :selected-file-id="selectedFileId"
+      :prompts="prompts"
       @update:selected-file-id="selectedFileId = $event"
+      @update:prompts="prompts = $event"
     />
   </div>
 </template>
@@ -265,8 +267,11 @@ import DocumentViewerModal from './DocumentViewerModal.vue';
 
 const wizardStore = useWizardStore();
 
-// Local prompts state
-const prompts = ref<PromptInput[]>([]);
+// Use prompts from wizard store for persistence
+const prompts = computed({
+  get: () => wizardStore.prompts,
+  set: (value) => wizardStore.setPrompts(value),
+});
 
 // Document viewer state
 const selectedFileId = ref<string | null>(null);
@@ -350,24 +355,29 @@ const templates = [
 
 // Methods
 function addNewPrompt() {
-  prompts.value.push({
+  const newPrompts = [...prompts.value];
+  newPrompts.push({
     content: '',
-    priority: prompts.value.length + 1,
+    priority: newPrompts.length + 1,
     targetType: 'GLOBAL',
     targetLines: { start: 1, end: 10 },
   });
+  prompts.value = newPrompts;
 }
 
 function removePrompt(index: number) {
-  prompts.value.splice(index, 1);
+  const newPrompts = [...prompts.value];
+  newPrompts.splice(index, 1);
   // Reorder priorities
-  prompts.value.forEach((p, i) => {
+  newPrompts.forEach((p, i) => {
     p.priority = i + 1;
   });
+  prompts.value = newPrompts;
 }
 
 function onTargetTypeChange(index: number) {
-  const prompt = prompts.value[index];
+  const newPrompts = [...prompts.value];
+  const prompt = newPrompts[index];
   if (!prompt) return;
 
   // Reset target-specific fields when type changes
@@ -380,6 +390,8 @@ function onTargetTypeChange(index: number) {
   } else {
     delete prompt.targetLines;
   }
+
+  prompts.value = newPrompts;
 }
 
 // Watch for targetFileId changes and auto-switch document viewer
@@ -396,11 +408,13 @@ watch(
 );
 
 function useTemplate(template: (typeof templates)[0]) {
-  prompts.value.push({
+  const newPrompts = [...prompts.value];
+  newPrompts.push({
     content: template.content,
-    priority: prompts.value.length + 1,
+    priority: newPrompts.length + 1,
     targetType: template.targetType,
   });
+  prompts.value = newPrompts;
 }
 
 function getPromptIcon(targetType: TargetType): string {
