@@ -200,24 +200,28 @@
             Pulling {{ pullProgress.modelName }}
           </div>
           <div class="text-body2 text-grey-7 q-mb-md">
-            {{ pullProgress.status }}
+            {{ formatStatus(pullProgress.status) }}
           </div>
           <q-linear-progress
             :value="pullProgress.percentage / 100"
             color="primary"
             size="20px"
             class="q-mb-sm"
+            :indeterminate="pullProgress.percentage === 0 && pullProgress.total === 0"
           >
-            <div class="absolute-full flex flex-center">
+            <div v-if="pullProgress.percentage > 0" class="absolute-full flex flex-center">
               <q-badge
                 color="white"
                 text-color="primary"
-                :label="pullProgress.percentage > 0 ? `${pullProgress.percentage}%` : 'Starting...'"
+                :label="`${pullProgress.percentage}%`"
               />
             </div>
           </q-linear-progress>
           <div v-if="pullProgress.total > 0" class="text-caption text-grey-6 text-center">
             {{ formatBytes(pullProgress.completed) }} / {{ formatBytes(pullProgress.total) }}
+          </div>
+          <div v-else class="text-caption text-grey-6 text-center">
+            Please wait...
           </div>
         </q-card-section>
       </q-card>
@@ -592,6 +596,24 @@ function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+}
+
+function formatStatus(status: string): string {
+  // Make status messages more user-friendly
+  const statusMap: Record<string, string> = {
+    'pulling manifest': 'Retrieving model information...',
+    'verifying sha256 digest': 'Verifying download integrity...',
+    'writing manifest': 'Finalizing installation...',
+    'removing any unused layers': 'Cleaning up...',
+    'success': 'Download complete!',
+  };
+
+  // Check if it's a downloading status
+  if (status.includes('downloading')) {
+    return 'Downloading model files...';
+  }
+
+  return statusMap[status.toLowerCase()] || status;
 }
 
 function getSpeedColor(speed: string): string {
